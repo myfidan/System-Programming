@@ -3,6 +3,12 @@
 #include <getopt.h>
 #include <string.h>
 
+#include <sys/types.h>
+#include <dirent.h>
+
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
 //check a string is consist of a number or not
 //used for optarg in -b and -l paramaters
 int checkNumber(char* str){
@@ -44,6 +50,26 @@ int checkRegularExp(char* filename, char* reg_file){
 	return 1;
 }
 
+
+
+void traverseDictionary(char* openDirectory){
+	DIR* dir;
+	struct dirent *dp;
+	dir = opendir(openDirectory);
+
+	while((dp = readdir(dir)) != NULL ){
+		if ( !strcmp(dp->d_name, ".") || !strcmp(dp->d_name, "..") )
+        {
+            // do nothing (straight logic)
+        }
+        else{
+
+			printf("%s\n",dp->d_name );
+        }
+	}
+
+}
+
 int main(int argc, char *argv[]){
 
 	int opt;
@@ -70,6 +96,11 @@ int main(int argc, char *argv[]){
         {  
             case 'f': 
             	flags_bool[0] = 1;
+
+            	if(optarg[0] == '+'){
+            		printf("Error in -f argument, wrong regular expression usage..\n");
+            		return -1;
+            	}
             	filename = optarg;
             	printf("option: %c\n", opt);
                 break; 
@@ -162,5 +193,8 @@ int main(int argc, char *argv[]){
 
     int temp = checkRegularExp("losttttfile", "lost+fil+e+");
     printf("%d\n", temp );
+
+    traverseDictionary("testfile");
+    //pureOpen("testfile");
 	return 0;
 }
