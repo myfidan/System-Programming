@@ -12,7 +12,14 @@
 #include <sys/syscall.h>
 
 
-
+struct FileAttributes{
+	char* target_directory; //w
+	char* filename; //f
+	int file_size; //b
+	char file_type; //t
+	char* permissions; //p
+	int link_number; //l
+};
 
 //check a string is consist of a number or not
 //used for optarg in -b and -l paramaters
@@ -56,7 +63,11 @@ int checkRegularExp(char* filename, char* reg_file){
 }
 
 
+int checkFileMatching(char* filePath){
+	return 0;
+}
 
+//Traverse Directory and try to find a matching file
 void traverseDictionary(char* openDirectory){
 
 	
@@ -92,20 +103,22 @@ void traverseDictionary(char* openDirectory){
 int main(int argc, char *argv[]){
 
 	int opt;
-
+	struct FileAttributes fileAttributes;
 	//declare all bool flags false
 	//fbtplw
 	int flags_bool[6];
 	for(int i=0; i<6; i++){
 		flags_bool[i] = 0;
 	} 
-	
+
+/*
 	char* target_directory; //w
 	char* filename; //f
 	int file_size; //b
 	char file_type; //t
 	char* permissions; //p
 	int link_number; //l
+*/
 
 	extern char *optarg;
 	extern int optind, optopt, opterr;
@@ -120,7 +133,7 @@ int main(int argc, char *argv[]){
             		printf("Error in -f argument, wrong regular expression usage..\n");
             		return -1;
             	}
-            	filename = optarg;
+            	fileAttributes.filename = optarg;
             	printf("option: %c\n", opt);
                 break; 
             case 'b':  
@@ -131,9 +144,7 @@ int main(int argc, char *argv[]){
             		printf("Error, b argument should be integer\n");
             		return -1;
             	}
-            	file_size = atoi(optarg);
-            	
-        		
+            	fileAttributes.file_size = atoi(optarg);
             	printf("option: %c\n", opt); 
                 break;
             case 't':
@@ -146,9 +157,8 @@ int main(int argc, char *argv[]){
             		printf("Error for argument -t\n");
             		return -1;
             	}
-
-            	file_type = optarg[0];
-                printf("option: %c\n", opt);
+            	fileAttributes.file_type = optarg[0];
+            	printf("option: %c\n", opt);
                 break;
             case 'p':
             	flags_bool[3] = 1;
@@ -157,7 +167,7 @@ int main(int argc, char *argv[]){
             		printf("Error, -p argument must be 9 characters\n");
             		return -1;
             	}
-            	permissions = optarg; 
+            	fileAttributes.permissions = optarg;
                 printf("option: %c\n", opt);
                 break;  
             case 'l':
@@ -168,13 +178,12 @@ int main(int argc, char *argv[]){
             		printf("Error, b argument should be integer\n");
             		return -1;
             	}
-
-            	link_number = atoi(optarg); 
+            	fileAttributes.link_number = atoi(optarg);
                 printf("option: %c\n", opt);
                 break;
 			case 'w':
 				flags_bool[5] = 1; 
-				target_directory = optarg;
+				fileAttributes.target_directory = optarg;
                 printf("option: %c\n", opt);
                 break; 
             default:
@@ -205,10 +214,10 @@ int main(int argc, char *argv[]){
     	printf("flags_bool[%d] = %d\n",i,flags_bool[i]);
     }
 
-    printf("%s\n", target_directory );
-    printf("%s\n", filename);
-    printf("%d\n", file_size);
-    printf("%c\n", file_type);
+    printf("%s\n", fileAttributes.target_directory );
+    printf("%s\n", fileAttributes.filename);
+    printf("%d\n", fileAttributes.file_size);
+    printf("%c\n", fileAttributes.file_type);
 
     int temp = checkRegularExp("losttttfile", "lost+fil+e+");
     printf("%d\n", temp );
