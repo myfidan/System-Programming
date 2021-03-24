@@ -62,9 +62,36 @@ int checkRegularExp(char* filename, char* reg_file){
 	return 1;
 }
 
+// check a file is matching with corresponding search criteria
+//if so return 1, otherwise return 0
+//used stat system call for access file attributes.
+int checkFileMatching(char* file_path, struct FileAttributes file_attributes, int* arg_flags){
+	int check_valid_match = 1;
+	struct stat fileStat;
+	stat(file_path,&fileStat);
 
-int checkFileMatching(char* filePath){
-	return 0;
+	if(arg_flags[0] == 1){ //filename
+
+	}
+	if(arg_flags[1] == 1){ //filesize
+		if(fileStat.st_size != file_attributes.file_size){
+			check_valid_match = 0;
+		}
+	}
+	if(arg_flags[2] == 1){ //filetype
+		
+	}
+	if(arg_flags[3] == 1){//permissions
+		
+	}
+	if(arg_flags[4] == 1){//linknumber
+		if(fileStat.st_nlink != file_attributes.link_number){
+			check_valid_match = 0;
+		}
+	}
+	
+
+	return check_valid_match;
 }
 
 //Traverse Directory and try to find a matching file
