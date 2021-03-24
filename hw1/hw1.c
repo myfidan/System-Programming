@@ -9,6 +9,11 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <sys/syscall.h>
+
+
+
+
 //check a string is consist of a number or not
 //used for optarg in -b and -l paramaters
 int checkNumber(char* str){
@@ -53,21 +58,35 @@ int checkRegularExp(char* filename, char* reg_file){
 
 
 void traverseDictionary(char* openDirectory){
+
+	
 	DIR* dir;
 	struct dirent *dp;
 	dir = opendir(openDirectory);
-
+	
+	struct stat fileStat;
 	while((dp = readdir(dir)) != NULL ){
+		
+		char* subdir = calloc(1, 4094 + 1);
 		if ( !strcmp(dp->d_name, ".") || !strcmp(dp->d_name, "..") )
         {
             // do nothing (straight logic)
         }
         else{
-
-			printf("%s\n",dp->d_name );
+        	
+        	strcat(subdir,openDirectory);
+        	strcat(subdir + strlen(openDirectory),"/");
+        	strcat(subdir + strlen(openDirectory) + 1,dp->d_name);
+			printf("%s\n",subdir );
+			stat(subdir,&fileStat);
+			if(S_ISDIR(fileStat.st_mode)){
+				
+				traverseDictionary(subdir);
+			}
         }
+        free(subdir);
 	}
-
+	closedir(dir);
 }
 
 int main(int argc, char *argv[]){
@@ -193,8 +212,7 @@ int main(int argc, char *argv[]){
 
     int temp = checkRegularExp("losttttfile", "lost+fil+e+");
     printf("%d\n", temp );
-
+    printf("-------------------\n");
     traverseDictionary("testfile");
-    //pureOpen("testfile");
 	return 0;
 }
