@@ -37,7 +37,8 @@ int checkNumber(char* str){
 //like lost+file match lostttttfile
 int checkRegularExp(char* filename, char* reg_file){
 	int reg_index=0,file_index=0;
-
+	//printf("%s\n",filename );
+	//printf("%s\n", reg_file);
 	while(reg_file[reg_index] != '\0'){
 
 		//normal character
@@ -62,16 +63,38 @@ int checkRegularExp(char* filename, char* reg_file){
 	return 1;
 }
 
+//tokenize file path and fetch file name
+// for example if filepath = aaa/bbb/ccc.txt
+// return ccc.txt
+char* takeFileName(char* file_path){
+	char* tempstr = calloc(strlen(file_path)+1, sizeof(char));
+	strcpy(tempstr, file_path);
+	char* token;
+	char* backup;
+	token = strtok(tempstr,"/");
+
+	while(token != NULL){
+		backup = token;
+		token = strtok(NULL,"/");
+		if(token == NULL) break;
+	}
+	free(tempstr);
+	return backup;
+}
+
 // check a file is matching with corresponding search criteria
 //if so return 1, otherwise return 0
 //used stat system call for access file attributes.
 int checkFileMatching(char* file_path, struct FileAttributes file_attributes, int* arg_flags){
 	int check_valid_match = 1;
 	struct stat fileStat;
-	stat(file_path,&fileStat);
+	lstat(file_path,&fileStat);
 
 	if(arg_flags[0] == 1){ //filename
-
+		char* filename = takeFileName(file_path);
+		if(checkRegularExp(filename,file_attributes.filename) != 1){
+			check_valid_match = 0;
+		}
 	}
 	if(arg_flags[1] == 1){ //filesize
 		if(fileStat.st_size != file_attributes.file_size){
@@ -79,10 +102,50 @@ int checkFileMatching(char* file_path, struct FileAttributes file_attributes, in
 		}
 	}
 	if(arg_flags[2] == 1){ //filetype
-		
+		char stat_type; 
+		if(S_ISDIR(fileStat.st_mode)){ // check file dir 
+			stat_type = 'd';
+		}
+		else if(S_ISREG(fileStat.st_mode)){ //check file regular
+			stat_type = 'f';
+		}
+		else if(S_ISBLK(fileStat.st_mode)){ //check file block device
+			stat_type = 'b';
+		}
+		else if(S_ISCHR(fileStat.st_mode)){ //check file character device
+			stat_type = 'c';
+		}
+		else if(S_ISLNK(fileStat.st_mode)){ //chcek file Symbolic link
+			stat_type = 'l';
+		}
+		else if(S_ISFIFO(fileStat.st_mode)){ //check file fifo or pipe
+			stat_type = 'p';
+		}
+		else{ //check file socket file or not
+			stat_type = 's';
+		}
+
+		if(stat_type != file_attributes.file_type){
+			check_valid_match = 0;
+		}
 	}
 	if(arg_flags[3] == 1){//permissions
-		
+		char stat_permissions[9];
+		stat_permissions[0] = (fileStat.st_mode & S_IRUSR) ? 'r' : '-';
+		stat_permissions[1] = (fileStat.st_mode & S_IWUSR) ? 'w' : '-';
+		stat_permissions[2] = (fileStat.st_mode & S_IXUSR) ? 'x' : '-';
+
+		stat_permissions[3] = (fileStat.st_mode & S_IRGRP) ? 'r' : '-';
+		stat_permissions[4] = (fileStat.st_mode & S_IWGRP) ? 'w' : '-';
+		stat_permissions[5] = (fileStat.st_mode & S_IXGRP) ? 'x' : '-';
+
+		stat_permissions[6] = (fileStat.st_mode & S_IROTH) ? 'r' : '-';
+		stat_permissions[7] = (fileStat.st_mode & S_IWOTH) ? 'w' : '-';
+		stat_permissions[8] = (fileStat.st_mode & S_IXOTH) ? 'x' : '-';
+
+		if(strcmp(stat_permissions,file_attributes.permissions) != 0){
+			check_valid_match = 0;
+		}
 	}
 	if(arg_flags[4] == 1){//linknumber
 		if(fileStat.st_nlink != file_attributes.link_number){
@@ -95,7 +158,7 @@ int checkFileMatching(char* file_path, struct FileAttributes file_attributes, in
 }
 
 //Traverse Directory and try to find a matching file
-void traverseDictionary(char* openDirectory){
+void traverseDictionary(char* openDirectory,struct FileAttributes file_attributes,int* arg_flags){
 
 	
 	DIR* dir;
@@ -115,11 +178,13 @@ void traverseDictionary(char* openDirectory){
         	strcat(subdir,openDirectory);
         	strcat(subdir + strlen(openDirectory),"/");
         	strcat(subdir + strlen(openDirectory) + 1,dp->d_name);
-			printf("%s\n",subdir );
+			//printf("%s\n",subdir );
+			int x = checkFileMatching(subdir,file_attributes,arg_flags);
+			if(x==1) printf("%s\n",subdir );
 			stat(subdir,&fileStat);
 			if(S_ISDIR(fileStat.st_mode)){
 				
-				traverseDictionary(subdir);
+				traverseDictionary(subdir,file_attributes,arg_flags);
 			}
         }
         free(subdir);
@@ -249,6 +314,13 @@ int main(int argc, char *argv[]){
     int temp = checkRegularExp("losttttfile", "lost+fil+e+");
     printf("%d\n", temp );
     printf("-------------------\n");
-    traverseDictionary("testfile");
+    traverseDictionary("testfile",fileAttributes,flags_bool);
+
+    char str[] ="testfile/z2/textttty.txt";
+    //printf("%s\n",takeFileName(str) );
+    //printf("%s\n",takeFileName(str) );
+    //printf("%s\n",takeFileName(str) );
+    //printf("%d\n",checkRegularExp(takeFileName(str),"text+y.txt") );
+	
 	return 0;
 }
