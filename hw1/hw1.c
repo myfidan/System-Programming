@@ -203,14 +203,6 @@ int main(int argc, char *argv[]){
 		flags_bool[i] = 0;
 	} 
 
-/*
-	char* target_directory; //w
-	char* filename; //f
-	int file_size; //b
-	char file_type; //t
-	char* permissions; //p
-	int link_number; //l
-*/
 
 	extern char *optarg;
 	extern int optind, optopt, opterr;
@@ -226,7 +218,6 @@ int main(int argc, char *argv[]){
             		return -1;
             	}
             	fileAttributes.filename = optarg;
-            	printf("option: %c\n", opt);
                 break; 
             case 'b':  
             	flags_bool[1] = 1;
@@ -237,7 +228,6 @@ int main(int argc, char *argv[]){
             		return -1;
             	}
             	fileAttributes.file_size = atoi(optarg);
-            	printf("option: %c\n", opt); 
                 break;
             case 't':
             	flags_bool[2] = 1; 
@@ -250,7 +240,6 @@ int main(int argc, char *argv[]){
             		return -1;
             	}
             	fileAttributes.file_type = optarg[0];
-            	printf("option: %c\n", opt);
                 break;
             case 'p':
             	flags_bool[3] = 1;
@@ -260,7 +249,6 @@ int main(int argc, char *argv[]){
             		return -1;
             	}
             	fileAttributes.permissions = optarg;
-                printf("option: %c\n", opt);
                 break;  
             case 'l':
             	flags_bool[4] = 1; 
@@ -271,12 +259,10 @@ int main(int argc, char *argv[]){
             		return -1;
             	}
             	fileAttributes.link_number = atoi(optarg);
-                printf("option: %c\n", opt);
                 break;
 			case 'w':
 				flags_bool[5] = 1; 
 				fileAttributes.target_directory = optarg;
-                printf("option: %c\n", opt);
                 break; 
             default:
             	printf("ERROR opt\n"); 
@@ -302,25 +288,9 @@ int main(int argc, char *argv[]){
     	return -1;
     }
 
-    for(int i=0; i<6; i++){
-    	printf("flags_bool[%d] = %d\n",i,flags_bool[i]);
-    }
+   
+    traverseDictionary(fileAttributes.target_directory,fileAttributes,flags_bool);
 
-    printf("%s\n", fileAttributes.target_directory );
-    printf("%s\n", fileAttributes.filename);
-    printf("%d\n", fileAttributes.file_size);
-    printf("%c\n", fileAttributes.file_type);
-
-    int temp = checkRegularExp("losttttfile", "lost+fil+e+");
-    printf("%d\n", temp );
-    printf("-------------------\n");
-    traverseDictionary("testfile",fileAttributes,flags_bool);
-
-    char str[] ="testfile/z2/textttty.txt";
-    //printf("%s\n",takeFileName(str) );
-    //printf("%s\n",takeFileName(str) );
-    //printf("%s\n",takeFileName(str) );
-    //printf("%d\n",checkRegularExp(takeFileName(str),"text+y.txt") );
 	
 	return 0;
 }
