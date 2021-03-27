@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
-
+// holding file attributes in a struct
 struct FileAttributes{
 	char* target_directory; //w
 	char* filename; //f
@@ -20,6 +20,11 @@ struct FileAttributes{
 	char* permissions; //p
 	int link_number; //l
 };
+
+
+char** dictionaries;
+int capacity;
+int size;
 
 //check a string is consist of a number or not
 //used for optarg in -b and -l paramaters
@@ -33,24 +38,49 @@ int checkNumber(char* str){
 	return 1;
 }
 
+//character compare case insensitive
+int checkInsensitiveCase(char x,char y){
+	if(x+32 == y){
+		return 1;
+	}
+	if(x-32 == y){
+		return 1;
+	}
+	if(x == y+32){
+		return 1;
+	}
+	if(x+32 == y-32){
+		return 1;
+	}
+	if(x == y) return 1;
+	return 0;
+}
+
+
 //check a filename match with given regular expression filename or not
 //like lost+file match lostttttfile
 int checkRegularExp(char* filename, char* reg_file){
+	
+
 	int reg_index=0,file_index=0;
 	//printf("%s\n",filename );
 	//printf("%s\n", reg_file);
 	while(reg_file[reg_index] != '\0'){
 
+		if(filename[file_index] == '\0') return -1;
+
 		//normal character
 		if(reg_file[reg_index] != '+'){
 			if(reg_file[reg_index] != filename[file_index]){
-				return -1;//this 2 file not match
+				if(checkInsensitiveCase(reg_file[reg_index],filename[file_index]) == 0){
+					return -1;//this 2 file not match
+				}
 			}
 		}//+ reg
 		else{
 			char prev_char = reg_file[reg_index-1];
 
-			while(filename[file_index] == prev_char){
+			while(checkInsensitiveCase(filename[file_index],prev_char)  == 1){
 
 				file_index++;
 			}
@@ -59,7 +89,6 @@ int checkRegularExp(char* filename, char* reg_file){
 		reg_index++;
 		file_index++;
 	}
-
 	return 1;
 }
 
@@ -67,19 +96,8 @@ int checkRegularExp(char* filename, char* reg_file){
 // for example if filepath = aaa/bbb/ccc.txt
 // return ccc.txt
 char* takeFileName(char* file_path){
-	char* tempstr = calloc(strlen(file_path)+1, sizeof(char));
-	strcpy(tempstr, file_path);
-	char* token;
-	char* backup;
-	token = strtok(tempstr,"/");
-
-	while(token != NULL){
-		backup = token;
-		token = strtok(NULL,"/");
-		if(token == NULL) break;
-	}
-	free(tempstr);
-	return backup;
+	char* lastname = strrchr(file_path,'/');
+	return (lastname+1);
 }
 
 // check a file is matching with corresponding search criteria
@@ -88,11 +106,14 @@ char* takeFileName(char* file_path){
 int checkFileMatching(char* file_path, struct FileAttributes file_attributes, int* arg_flags){
 	int check_valid_match = 1;
 	struct stat fileStat;
-	lstat(file_path,&fileStat);
+	if(lstat(file_path,&fileStat) < 0){
+		perror("lstat error");
+		exit(1);
+	}
 
 	if(arg_flags[0] == 1){ //filename
-		char* filename = takeFileName(file_path);
-		if(checkRegularExp(filename,file_attributes.filename) != 1){
+		//char* filename = takeFileName(file_path);
+		if(checkRegularExp(takeFileName(file_path),file_attributes.filename) != 1){
 			check_valid_match = 0;
 		}
 	}
@@ -157,6 +178,52 @@ int checkFileMatching(char* file_path, struct FileAttributes file_attributes, in
 	return check_valid_match;
 }
 
+//check should a directory print or not
+//for nice formatted tree output
+void checkPrint(char* path){
+	char* temp = calloc(strlen(path)+1, sizeof(char));
+	strcpy(temp, path);
+	char* token = strtok(temp,"/");
+	char* lastname = strrchr(path,'/');
+	int i=0;
+	struct stat fileStat;
+	lstat(path,&fileStat);
+	while(token != NULL){
+		int flag = 0;
+		for(int j=0; j<size; j++){
+			if(strcmp(dictionaries[j],token) == 0) flag = 1;
+		}
+		if(!flag){
+			//reallocta yap
+			if(strcmp((lastname+1),token) != 0 || S_ISDIR(fileStat.st_mode)){
+				if(size == capacity){
+					capacity *= 2;
+					dictionaries = realloc(dictionaries, capacity*sizeof(*dictionaries));
+				}
+
+				dictionaries[size++] = malloc(256*sizeof(char));
+		    	strcpy(dictionaries[size-1],token);
+			}
+			if(i == 0){
+				printf("%s\n",token);
+			}
+			else{
+				printf("|");
+				for(int k=0; k<2*i; k++){
+					printf("-");
+				}
+				printf("%s\n",token);
+			}
+		}
+
+    	i++;
+		token = strtok(NULL, "/");
+	}
+
+	free(temp);
+
+}
+
 //Traverse Directory and try to find a matching file
 void traverseDictionary(char* openDirectory,struct FileAttributes file_attributes,int* arg_flags){
 
@@ -165,10 +232,14 @@ void traverseDictionary(char* openDirectory,struct FileAttributes file_attribute
 	struct dirent *dp;
 	dir = opendir(openDirectory);
 	
+	if(dir == NULL){//check opendir fail
+		perror("opendir error");
+		exit(1);
+	}
 	struct stat fileStat;
 	while((dp = readdir(dir)) != NULL ){
 		
-		char* subdir = calloc(1, 4094 + 1);
+		char* subdir = calloc(1, strlen(openDirectory)+255+ 1); //last change
 		if ( !strcmp(dp->d_name, ".") || !strcmp(dp->d_name, "..") )
         {
             // do nothing (straight logic)
@@ -180,17 +251,36 @@ void traverseDictionary(char* openDirectory,struct FileAttributes file_attribute
         	strcat(subdir + strlen(openDirectory) + 1,dp->d_name);
 			//printf("%s\n",subdir );
 			int x = checkFileMatching(subdir,file_attributes,arg_flags);
-			if(x==1) printf("%s\n",subdir );
-			stat(subdir,&fileStat);
-			if(S_ISDIR(fileStat.st_mode)){
+			if(x==1){
+				//printf("|");
+				//for(int j=0; j<intension; j++){
+					//printf("-");
+				//}
+				checkPrint(subdir);
+				//printf("%s\n",takeFileName(subdir) );
+			} 
 				
+
+			if(lstat(subdir,&fileStat) == -1){//check stat error
+				perror("Stat error");
+				exit(1);
+			}
+			
+			if(S_ISDIR(fileStat.st_mode)){
+					
 				traverseDictionary(subdir,file_attributes,arg_flags);
 			}
         }
         free(subdir);
 	}
-	closedir(dir);
+	if(closedir(dir) == -1){//check closedir error
+		perror("closedir error");
+		exit(1);
+	}
 }
+
+
+
 
 int main(int argc, char *argv[]){
 
@@ -269,7 +359,6 @@ int main(int argc, char *argv[]){
             	return(-1); 
         }  
     }
-
     //Check there is w argument or not because w argument mandatory
     if(flags_bool[5] == 0){
     	printf("ERROR, No w argument, its mandatory.\n");
@@ -288,9 +377,18 @@ int main(int argc, char *argv[]){
     	return -1;
     }
 
+    capacity = 100;
+    size = 0;
+    dictionaries = malloc(capacity*sizeof(*dictionaries));
+
+    
    
     traverseDictionary(fileAttributes.target_directory,fileAttributes,flags_bool);
 
+    for(int k=0; k<size; k++){
+    	free(dictionaries[k]);
+    }
+    free(dictionaries);
 	
 	return 0;
 }
