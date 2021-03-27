@@ -79,12 +79,30 @@ int checkRegularExp(char* filename, char* reg_file){
 		}//+ reg
 		else{
 			char prev_char = reg_file[reg_index-1];
-
-			while(checkInsensitiveCase(filename[file_index],prev_char)  == 1){
+			if(reg_file[reg_index+1] != '\0' && reg_file[reg_index+1] == prev_char){
+				int total_char = 0;
+				reg_index++;
+				while(reg_file[reg_index] != '\0' && checkInsensitiveCase(reg_file[reg_index],prev_char)  == 1){
+					total_char++;
+					reg_index++;
+				}
+				reg_index--;
+				while(filename[file_index] != '\0' && checkInsensitiveCase(filename[file_index],prev_char)  == 1){
+					total_char--;
+					file_index++;
+				}
+				file_index--;
+				if(total_char > 0) return -1;
+			}
+			else{
+				while(checkInsensitiveCase(filename[file_index],prev_char)  == 1){
 
 				file_index++;
+				}
+				file_index--;
 			}
-			file_index--;
+
+			
 		}
 		reg_index++;
 		file_index++;
@@ -184,6 +202,74 @@ void checkPrint(char* path){
 	char* temp = calloc(strlen(path)+1, sizeof(char));
 	strcpy(temp, path);
 	char* token = strtok(temp,"/");
+	char* subdir = calloc(1, 4097); //last change
+
+	int i = 0;
+	while(token != NULL){
+		strcat(subdir,token);
+        
+		int flag = 0;
+		for(int j=0; j<size; j++){
+			if(strcmp(dictionaries[j],subdir) == 0){
+				flag = 1;
+				break;
+			} 
+		}
+
+		if(!flag){
+			if(i != 0){
+				char* lastname = strrchr(subdir,'/');
+				if(size == capacity){
+					capacity *= 2;
+					dictionaries = realloc(dictionaries, capacity*sizeof(*dictionaries));
+				}
+
+				dictionaries[size++] = malloc(4097*sizeof(char));
+			    strcpy(dictionaries[size-1],subdir);
+
+				if(i == 0){
+				printf("%s\n",lastname+1);
+				}
+				else{
+					printf("|");
+					for(int k=0; k<2*i; k++){
+						printf("-");
+					}
+					printf("%s\n",lastname+1);
+				}
+			}
+			else{
+
+				if(size == capacity){
+					capacity *= 2;
+					dictionaries = realloc(dictionaries, capacity*sizeof(*dictionaries));
+				}
+
+				dictionaries[size++] = malloc(4097*sizeof(char));
+			    strcpy(dictionaries[size-1],subdir);
+
+				if(i == 0){
+				printf("%s\n",subdir);
+				}
+				else{
+					printf("|");
+					for(int k=0; k<2*i; k++){
+						printf("-");
+					}
+					printf("%s\n",subdir);
+				}
+			}	
+		}
+
+		
+        i++;
+        strcat(subdir + strlen(token),"/");
+        token = strtok(NULL, "/");
+	}
+	/*
+	char* temp = calloc(strlen(path)+1, sizeof(char));
+	strcpy(temp, path);
+	char* token = strtok(temp,"/");
 	char* lastname = strrchr(path,'/');
 	int i=0;
 	struct stat fileStat;
@@ -202,6 +288,7 @@ void checkPrint(char* path){
 				}
 
 				dictionaries[size++] = malloc(256*sizeof(char));
+
 		    	strcpy(dictionaries[size-1],token);
 			}
 			if(i == 0){
@@ -221,7 +308,9 @@ void checkPrint(char* path){
 	}
 
 	free(temp);
-
+	*/
+	free(temp);
+	free(subdir);
 }
 
 //Traverse Directory and try to find a matching file
