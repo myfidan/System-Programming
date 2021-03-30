@@ -1,3 +1,4 @@
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
@@ -10,6 +11,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+
 
 // holding file attributes in a struct
 struct FileAttributes{
@@ -25,6 +27,13 @@ struct FileAttributes{
 char** dictionaries;
 int capacity;
 int size;
+int total_print = 0;
+int pathNum = 0;
+
+sig_atomic_t sig_flag = 0;
+void handler(int signal_number){
+	sig_flag++;
+}
 
 //check a string is consist of a number or not
 //used for optarg in -b and -l paramaters
@@ -199,6 +208,7 @@ int checkFileMatching(char* file_path, struct FileAttributes file_attributes, in
 //check should a directory print or not
 //for nice formatted tree output
 void checkPrint(char* path){
+	total_print++;
 	char* temp = calloc(strlen(path)+1, sizeof(char));
 	strcpy(temp, path);
 	char* token = strtok(temp,"/");
@@ -227,12 +237,12 @@ void checkPrint(char* path){
 				dictionaries[size++] = malloc(4097*sizeof(char));
 			    strcpy(dictionaries[size-1],subdir);
 
-				if(i == 0){
+				if(i-pathNum == 0){
 				printf("%s\n",lastname+1);
 				}
 				else{
 					printf("|");
-					for(int k=0; k<2*i; k++){
+					for(int k=0; k<2*(i-pathNum); k++){
 						printf("-");
 					}
 					printf("%s\n",lastname+1);
@@ -248,12 +258,12 @@ void checkPrint(char* path){
 				dictionaries[size++] = malloc(4097*sizeof(char));
 			    strcpy(dictionaries[size-1],subdir);
 
-				if(i == 0){
+				if(i-pathNum == 0){
 				printf("%s\n",subdir);
 				}
 				else{
 					printf("|");
-					for(int k=0; k<2*i; k++){
+					for(int k=0; k<2*(i-pathNum); k++){
 						printf("-");
 					}
 					printf("%s\n",subdir);
@@ -369,12 +379,39 @@ void traverseDictionary(char* openDirectory,struct FileAttributes file_attribute
 }
 
 
+int findDictionaryCount(char* path){
+	char* temp = calloc(strlen(path)+1, sizeof(char));
+	strcpy(temp, path);
+	int i= 0;
+	int total = 0;
+	while(temp[i] != '\0'){
+		if(temp[i] == '/' && i != 0) {
+			if(temp[i+1] != '\0') total++;
+		}
+		i++;
+	}
 
+
+	free(temp);
+
+	return total;
+}
 
 int main(int argc, char *argv[]){
 
 	int opt;
 	struct FileAttributes fileAttributes;
+	struct sigaction act;
+	memset(&act,0,sizeof(act));
+	act.sa_handler = &handler;
+	act.sa_flags = 0;
+
+	if((sigemptyset(&act.sa_mask) == -1) || (sigaction(SIGINT,&act,NULL) == -1)){
+		perror("Error signal handler for SIGINT");
+		return -1;
+	}
+
+
 	//declare all bool flags false
 	//fbtplw
 	int flags_bool[6];
@@ -470,14 +507,51 @@ int main(int argc, char *argv[]){
     size = 0;
     dictionaries = malloc(capacity*sizeof(*dictionaries));
 
-    
-   
+    int traverseTotal = findDictionaryCount(fileAttributes.target_directory);
+    int j=0;
+
+    char* Pretemp = calloc(strlen(fileAttributes.target_directory)+1, sizeof(char));
+	strcpy(Pretemp, fileAttributes.target_directory);
+	char* token = strtok(Pretemp,"/");
+	char* subdir = calloc(1, 4097); //last change
+
+    while(j<traverseTotal){
+		strcat(subdir,token);
+
+		if(size == capacity){
+			capacity *= 2;
+			dictionaries = realloc(dictionaries, capacity*sizeof(*dictionaries));
+		}
+
+		dictionaries[size++] = malloc(4097*sizeof(char));
+	    strcpy(dictionaries[size-1],subdir);
+
+		strcat(subdir + strlen(token),"/");
+        token = strtok(NULL, "/");
+
+	    pathNum++;
+		j++;
+    }
+   	
+   	free(Pretemp);
+   	free(subdir);
+   	
     traverseDictionary(fileAttributes.target_directory,fileAttributes,flags_bool);
+
+    if(total_print == 0){
+    	printf("No file found\n");
+    }
+
 
     for(int k=0; k<size; k++){
     	free(dictionaries[k]);
     }
     free(dictionaries);
 	
+	if(sig_flag > 0){
+		printf("A SIGINT arrived and catched by handler..\n");
+	}
+
+
 	return 0;
 }
