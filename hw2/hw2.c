@@ -18,6 +18,7 @@
 
 void take_first_6_point(char* buffer,double* x_first_6,double* y_first_6);
 double calculate_lagrande(double* x_first_6,double* y_first_6, int numberCount, int nextPoint);
+void create_new_row(char* buffer,double res_6);
 
 int main(int argc,char* argv[]){
 
@@ -29,7 +30,7 @@ int main(int argc,char* argv[]){
 	pid_t child_process[8];
 	char* filepath = argv[1];
 	
-	int fd = open(filepath,O_RDWR | O_SYNC );
+	int fd = open(filepath,O_RDWR | O_SYNC | O_APPEND);
 	if(fd == -1){
 		perror("open file error");
 		exit(1);
@@ -68,15 +69,35 @@ int main(int argc,char* argv[]){
 				//read(fd,buffer,BUF_SIZE);
 				//Each prosess read corresponding row
 				int k = 0;
+				char beforeRow[BUF_SIZE];
+				beforeRow[0] = '\0';
+				char afterRow[BUF_SIZE];
+				afterRow[0] = '\0';
 				while((count = read(fd,&chr,sizeof(chr)))){
-					if(k>i) break;
+					if(k>i){
+						strncat(afterRow,&chr,1);
+						int count2 = 1;
+						while((count2 = read(fd,&chr,sizeof(chr)))){
+							strncat(afterRow,&chr,1);
+						}
+						break;
+					}
 					if (k == i){
 						strncat(buffer,&chr,1);
+					}
+					else{
+						strncat(beforeRow,&chr,1);
 					}	
 					if(chr == '\n') k++;
 					//printf("%c",chr);
 				}
-				printf("%s",buffer );
+				//printf("%s",buffer );
+				char* useStrForToken = calloc(strlen(buffer)+1, sizeof(char));
+				strcpy(useStrForToken, buffer);
+
+
+				char* strNewRow = calloc(strlen(buffer)+100, sizeof(char));
+				strcpy(strNewRow, buffer);
 
 
 				
@@ -85,26 +106,35 @@ int main(int argc,char* argv[]){
 			   	double x_first_6[6];
 			   	double y_first_6[6];
 			   	//Take 6 point
-			   	take_first_6_point(buffer,x_first_6,y_first_6);
+			   	take_first_6_point(useStrForToken,x_first_6,y_first_6);
 			   	double res_6 = calculate_lagrande(x_first_6,y_first_6,6,7);
+			    create_new_row(strNewRow,res_6);
 			    
 
+			    char * newWrite = calloc(1024, sizeof(char));
+			    strcat(newWrite,beforeRow);
+			    strcat(newWrite,strNewRow);
+			    strcat(newWrite,afterRow);
+			    //printf("%s\n",newWrite );
+			    //printf("%s",beforeRow);
+			    //printf("%s",strNewRow );
+			    //printf("%s\n",afterRow);
+			    //fflush(stdout);
+			    /*
 			    printf("Calculated points:\n");
 			    for(int j=0; j<6; j++){
 			    	printf("(%.1lf,%.1lf) ",x_first_6[j],y_first_6[j] );
 			    }
 			    printf("\n");
 			    printf("Next Point %.1lf\n", res_6);
+				*/
 
 				lseek(fd,0,0);
-
-				/*
+				
+				
 				ftruncate(fd, 0);
-				char copy = '*';
-				char endchar = '\0';
-    			write(fd,&copy,1);
-    			write(fd,&endchar,1);
-*/
+				write(fd,newWrite,strlen(newWrite));
+				
 				lock.l_type = F_UNLCK;
 				
 				if(fcntl(fd,F_SETLK,&lock) == -1){
@@ -112,6 +142,11 @@ int main(int argc,char* argv[]){
 					exit(1);
 				}
 				
+
+				free(newWrite);
+				free(strNewRow);
+				free(useStrForToken);
+
 				close(fd);
 				_exit(EXIT_SUCCESS);
 
@@ -164,7 +199,7 @@ void take_first_6_point(char* buffer,double* x_first_6,double* y_first_6){
     }
 }
 
-
+//Calculate lagrande by using wikipedia formula for lagrande
 double calculate_lagrande(double* x_first_6,double* y_first_6, int numberCount, int nextPoint){
 	double res;
 	double finalResult = 0;
@@ -172,7 +207,7 @@ double calculate_lagrande(double* x_first_6,double* y_first_6, int numberCount, 
 		res = 1;
 		for(int j=0; j<numberCount; j++){
 			if(i != j){
-				res = res * (nextPoint - x_first_6[j]) / (double)(x_first_6[i] - x_first_6[j]);
+				res = res * (double)(nextPoint - x_first_6[j]) / (double)(x_first_6[i] - x_first_6[j]);
 			}
 		}
 		finalResult += res * y_first_6[i];
@@ -180,3 +215,21 @@ double calculate_lagrande(double* x_first_6,double* y_first_6, int numberCount, 
 
 	return finalResult;
 }
+
+//Combine row with new finded lagrande value
+void create_new_row(char* buffer,double res_6){
+	//remove last \n
+	buffer[strlen(buffer) - 1] = '\0';
+	//Add comma
+	char comma = ',';
+	strncat(buffer,&comma,1);
+	//add new value
+	char d[15];
+	sprintf(d,"%.1lf", res_6);
+	strcat(buffer,d);
+	//add \n again
+	char newLine = '\n';
+	strncat(buffer,&newLine,1);
+
+}
+
