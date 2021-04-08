@@ -18,25 +18,42 @@
 #define BUF_SIZE 1024
 
 void take_first_6_point(char* buffer,double* x_first_6,double* y_first_6,int numberCount);
-double calculate_lagrande(double* x_first_6,double* y_first_6, int numberCount, int nextPoint);
+double calculate_lagrande(double* x_first_6,double* y_first_6, int numberCount, double nextPoint);
 void create_new_row(char* buffer,double res_6);
 void parent_calculate_error(int fd,int x);
 double take_x_7(char* buffer);
+void print_polynomial(double* x_first_7,double* y_first_7,int rowNumber);
+
 
 sig_atomic_t child_exit_status;
+pid_t sender_pid;
+/*
 void clean_child_signal_handler(int signo){
 	switch(signo){
 		case SIGUSR1:
-
+		
 			break;
-		case SIGCHLD:
-			printf("hi\n");
+		case SIGCHLD:;
 			int status;
 			wait(&status);
 			child_exit_status = status;
 			break;
 	}
 	
+}
+*/
+static void handler(int sig, siginfo_t *siginfo,void *context){
+	switch(sig){
+		case SIGUSR1:
+			sender_pid = siginfo->si_pid;
+			break;
+		case SIGCHLD: ;
+			
+			int status;
+			wait(&status);
+			child_exit_status = status;
+			break;
+	}
 }
 
 int main(int argc,char* argv[]){
@@ -57,7 +74,8 @@ int main(int argc,char* argv[]){
 
 	struct sigaction signalAction;
 	memset(&signalAction,0,sizeof(signalAction));
-	signalAction.sa_handler = &clean_child_signal_handler;
+	signalAction.sa_sigaction = *handler;
+	signalAction.sa_flags |= SA_SIGINFO;
 	sigaction(SIGCHLD,&signalAction,NULL);
 	sigaction(SIGUSR1,&signalAction,NULL);
 
@@ -88,7 +106,8 @@ int main(int argc,char* argv[]){
 
 			struct sigaction signalAction;
 			memset(&signalAction,0,sizeof(signalAction));
-			signalAction.sa_handler = &clean_child_signal_handler;
+			signalAction.sa_sigaction = *handler;
+			signalAction.sa_flags |= SA_SIGINFO;
 			sigaction(SIGUSR1,&signalAction,NULL);
 
 
@@ -192,8 +211,9 @@ int main(int argc,char* argv[]){
 			
 			sigprocmask(SIG_BLOCK, &mask, NULL);
 			//send sigusr1 to parent
-			printf("Singal sending %d\n",i );
+			//printf("Singal sending %d\n",i );
 			kill(getppid(),SIGUSR1);
+			sigsuspend(&sigset);
 			
 			
 			if(fcntl(fd,F_SETLK,&lock) == -1){
@@ -205,7 +225,7 @@ int main(int argc,char* argv[]){
 			sigsuspend(&sigset);
 			
 
-			sigprocmask(SIG_UNBLOCK, &mask, NULL);
+			
 
 			/*  SECOND PART FOR CHILD PROCESSES */
 
@@ -219,7 +239,7 @@ int main(int argc,char* argv[]){
 			lseek(fd,0,SEEK_SET);
 			//NO_EINTR(cnt = read(fd,buffer,BUF_SIZE))
 			
-			printf("In process %d\n",i);
+			//printf("In process %d\n",i);
 			count=1;
 			//read(fd,buffer,BUF_SIZE);
 			//Each prosess read corresponding row
@@ -251,7 +271,7 @@ int main(int argc,char* argv[]){
 			}
 			//printf("%s",buffer );
 
-			printf("%s\n",buffer_2);
+			//printf("%s\n",buffer_2);
 			double x_first_7[7];
 		   	double y_first_7[7];
 		   	char* useStrForToken_2 = calloc(strlen(buffer_2)+1,sizeof(char));
@@ -264,7 +284,7 @@ int main(int argc,char* argv[]){
 		   	x_7 = take_x_7(buffer_2);
 		   	double res_7 = calculate_lagrande(x_first_7,y_first_7,7,x_7);
 		   	create_new_row(strNewRow_2,res_7);
-		   	printf("%lf\n",res_7 );
+		   	//printf("%lf\n",res_7 );
 
 
 		   	char * newWrite_2 = calloc(1024, sizeof(char));
@@ -275,7 +295,14 @@ int main(int argc,char* argv[]){
 
 		    ftruncate(fd, 0);
 			write(fd,newWrite_2,strlen(newWrite_2));
-		    
+
+
+
+			print_polynomial(x_first_7,y_first_7,i);
+
+			kill(getppid(),SIGUSR1);
+			sigsuspend(&sigset);
+
 		   	lock.l_type = F_UNLCK;
 		
 			if(fcntl(fd,F_SETLK,&lock) == -1){
@@ -290,29 +317,54 @@ int main(int argc,char* argv[]){
 
 			close(fd);
 
-			sleep(5);
-			//sigprocmask(SIG_UNBLOCK, &mask, NULL);
+			sigprocmask(SIG_UNBLOCK, &mask, NULL);
+			
 			_exit(EXIT_SUCCESS);
 		}
 		
 	}
-
+	struct flock lock2;
+	memset(&lock2,0,sizeof(lock2));
 	//Waiting 8 signal from childrens with sigsuspend
 	for(i = 0; i<8; i++){
 		sigsuspend(&sigset);
-		printf("arrive %d\n",i);
+		kill(sender_pid,SIGUSR1);
 		
 	}
-	sigprocmask(SIG_UNBLOCK, &mask, NULL);
+	
+	lock2.l_type = F_WRLCK;
+	//lock file 
+	if(fcntl(fd,F_SETLKW,&lock2) == -1){
+		perror("fcntl error");
+		exit(1);
+	}
 
 	parent_calculate_error(fd,7);
 	
+
 	//Sending sigusr1 to children 
 	//So they can continiue
 	for(int i=0; i<8; i++) kill(child_process[i],SIGUSR1);
 
 
-	printf("Parent Finish\n");
+	lock2.l_type = F_UNLCK;
+	
+	if(fcntl(fd,F_SETLK,&lock2) == -1){
+		perror("fcntl error");
+		exit(1);
+	}
+
+	//Wait second part signals
+	for(int i=0; i<8; i++){
+		sigsuspend(&sigset);
+		kill(sender_pid,SIGUSR1);
+		//sinyal gelen processe sinyal atmam lazım
+	}
+
+	parent_calculate_error(fd,8);
+
+	sigprocmask(SIG_UNBLOCK, &mask, NULL);
+
 	
 	return 0;
 }
@@ -355,7 +407,7 @@ void take_first_6_point(char* buffer,double* x_first_6,double* y_first_6,int num
 }
 
 //Calculate lagrande by using wikipedia formula for lagrande
-double calculate_lagrande(double* x_first_6,double* y_first_6, int numberCount, int nextPoint){
+double calculate_lagrande(double* x_first_6,double* y_first_6, int numberCount, double nextPoint){
 	double res;
 	double finalResult = 0;
 	for(int i=0; i<numberCount; i++){
@@ -417,6 +469,16 @@ double take_x_7(char* buffer){
 
 //Parent process calculate error and print terminal
 void parent_calculate_error(int fd,int x){
+	int check_comma;
+	int degree;
+	if(x == 7){
+		degree = 5;
+		check_comma = 16;
+	}
+	else{
+		degree = 6;
+		check_comma = 17;
+	}
 
 	struct flock lock;
 	memset(&lock,0,sizeof(lock));
@@ -444,7 +506,6 @@ void parent_calculate_error(int fd,int x){
 			
 			sscanf(y_7,"%lf",&y7);
 			sscanf(p_7,"%lf",&p7);
-			printf("%lf\n", fabs(y7-p7));
 			total_error += fabs(y7-p7);
 			y_7[0] = '\0';
 			p_7[0] = '\0';				
@@ -455,7 +516,7 @@ void parent_calculate_error(int fd,int x){
 		else if(comma_count == 15){
 			strncat(y_7,&chr,1);
 		}
-		else if(comma_count == 16){
+		else if(comma_count == check_comma){
 			strncat(p_7,&chr,1);
 		}
 
@@ -469,6 +530,56 @@ void parent_calculate_error(int fd,int x){
 	}
 
 	total_error = total_error/8.0;
-	printf("Error of polynomial of degree 5: %.1lf\n",total_error );
+	printf("Error of polynomial of degree %d: %.1lf\n",degree,total_error );
 
+}
+
+
+void print_polynomial(double* x_first_7,double* y_first_7,int rowNumber){
+	
+	
+	int n = 7;
+	double matrix[7][8];
+	double c;
+	double sum = 0.0;
+	double coefficients[7];
+	// init array by row points
+	for(int i=0; i<7; i++){
+		matrix[i][0] = pow(x_first_7[i],6); 
+		matrix[i][1] = pow(x_first_7[i],5); 
+		matrix[i][2] = pow(x_first_7[i],4); 
+		matrix[i][3] = pow(x_first_7[i],3); 
+		matrix[i][4] = pow(x_first_7[i],2); 
+		matrix[i][5] = pow(x_first_7[i],1); 
+		matrix[i][6] = 1;
+		matrix[i][7] = y_first_7[i];
+	}
+
+	for(int k=0; k<=n-1; k++)
+    {
+	for(int i=k+1; i<n; i++)
+	{
+	    c = matrix[i][k]/matrix[k][k];
+	    for(int j=k; j<=n; j++)
+	    {
+		matrix[i][j] = matrix[i][j] - (c * matrix[k][j]);
+	    }
+	}
+    }
+    coefficients[n-1] = matrix[n-1][n] / matrix[n-1][n-1];
+    for(int i=n-2; i>=0; i--)
+    {
+        sum=0;
+        for(int j=i+1; j<n; j++)
+        {
+            sum += (matrix[i][j]*coefficients[j]);
+            coefficients[i] = (matrix[i][n]-sum)/matrix[i][i];
+        }
+    }
+    printf("polynomial %d: ",rowNumber );
+    printf("%.1lf",coefficients[0]);
+    for(int i=1; i<n; i++){
+    	printf(",%.1lf",coefficients[i]);
+    }
+    printf("\n");
 }
