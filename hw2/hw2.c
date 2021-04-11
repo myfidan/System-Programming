@@ -27,23 +27,12 @@ void print_polynomial(double* x_first_7,double* y_first_7,int rowNumber);
 
 sig_atomic_t child_exit_status;
 pid_t sender_pid;
-/*
-void clean_child_signal_handler(int signo){
-	switch(signo){
-		case SIGUSR1:
-		
-			break;
-		case SIGCHLD:;
-			int status;
-			wait(&status);
-			child_exit_status = status;
-			break;
-	}
-	
-}
-*/
+sig_atomic_t ctrlc_signal = 0;
+
 static void handler(int sig, siginfo_t *siginfo,void *context){
 	switch(sig){
+		case SIGINT:
+			ctrlc_signal = 1;
 		case SIGUSR1:
 			sender_pid = siginfo->si_pid;
 			break;
@@ -76,20 +65,33 @@ int main(int argc,char* argv[]){
 	memset(&signalAction,0,sizeof(signalAction));
 	signalAction.sa_sigaction = *handler;
 	signalAction.sa_flags |= SA_SIGINFO;
-	sigaction(SIGCHLD,&signalAction,NULL);
-	sigaction(SIGUSR1,&signalAction,NULL);
-
+	
+	
+	if(sigaction(SIGCHLD,&signalAction,NULL) == -1){
+		perror("Sigaction error");
+		return 1;
+	}
+	if(sigaction(SIGUSR1,&signalAction,NULL) == -1){
+		perror("Sigaction error");
+		return 1;
+	}
+	if(sigaction(SIGINT,&signalAction,NULL) == -1){
+		perror("Sigaction error");
+		return 1;
+	}
 
 	sigset_t sigset;
-	sigfillset(&sigset);
-	sigdelset(&sigset, SIGUSR1);
-	
 	sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGUSR1);
+    
+    if(sigfillset(&sigset) == -1 || sigdelset(&sigset, SIGUSR1) == -1 || sigemptyset(&mask) == -1 || sigaddset(&mask, SIGUSR1) == -1){
+    	perror("Signal init error");
+    	return 1;
+    }
 
-
-	sigprocmask(SIG_BLOCK, &mask, NULL);
+	if(sigprocmask(SIG_BLOCK, &mask, NULL) == -1){
+		perror("Signal block error");
+		return 1;
+	}
 
 	//Create 8 process
 	int i = 0;
@@ -108,22 +110,26 @@ int main(int argc,char* argv[]){
 			memset(&signalAction,0,sizeof(signalAction));
 			signalAction.sa_sigaction = *handler;
 			signalAction.sa_flags |= SA_SIGINFO;
-			sigaction(SIGUSR1,&signalAction,NULL);
-
+			if(sigaction(SIGUSR1,&signalAction,NULL) == -1){
+				perror("Sigaction error");
+				return 1;
+			}
+			if(sigaction(SIGINT,&signalAction,NULL) == -1){
+				perror("Sigaction error");
+				return 1;
+			}
 
 			sigset_t sigset;
-			sigfillset(&sigset);
-			sigdelset(&sigset, SIGUSR1);
-			
 			sigset_t mask;
-		    sigemptyset(&mask);
-		    sigaddset(&mask, SIGUSR1);
+			if(sigfillset(&sigset) == -1 || sigdelset(&sigset, SIGUSR1) == -1 || sigemptyset(&mask) == -1 || sigaddset(&mask, SIGUSR1) == -1){
+		    	perror("Signal init error");
+		    	return 1;
+		    }
 
 
 			char buffer[BUF_SIZE];
 			buffer[0] = '\0';
 
-			int cnt;
 			lock.l_type = F_WRLCK;
 			//lock file 
 			if(fcntl(fd,F_SETLKW,&lock) == -1){
@@ -134,35 +140,29 @@ int main(int argc,char* argv[]){
 			//NO_EINTR(cnt = read(fd,buffer,BUF_SIZE))
 			
 
-			char c[2];
 			int count=1;
 			char chr;
 			//read(fd,buffer,BUF_SIZE);
 			//Each prosess read corresponding row
 			int k = 0;
-			char beforeRow[BUF_SIZE];
-			beforeRow[0] = '\0';
-			char afterRow[BUF_SIZE];
-			afterRow[0] = '\0';
+			
 			while((count = read(fd,&chr,sizeof(chr)))){
-				if(k>i){
-					strncat(afterRow,&chr,1);
-					int count2 = 1;
-					while((count2 = read(fd,&chr,sizeof(chr)))){
-						strncat(afterRow,&chr,1);
-					}
-					break;
-				}
+				
 				if (k == i){
 					strncat(buffer,&chr,1);
 				}
-				else{
-					strncat(beforeRow,&chr,1);
-				}	
+				if(k > i) break;	
 				if(chr == '\n') k++;
 				//printf("%c",chr);
 			}
 			//printf("%s",buffer );
+
+			lock.l_type = F_UNLCK;
+			if(fcntl(fd,F_SETLK,&lock) == -1){
+				perror("fcntl error");
+				exit(1);
+			}
+
 			char* useStrForToken = calloc(strlen(buffer)+1, sizeof(char));
 			strcpy(useStrForToken, buffer);
 
@@ -182,6 +182,37 @@ int main(int argc,char* argv[]){
 		   	x_7 = take_x_7(buffer);
 		   	double res_6 = calculate_lagrande(x_first_6,y_first_6,6,x_7);
 		    create_new_row(strNewRow,res_6);
+
+
+		    lock.l_type = F_WRLCK;
+			//lock file 
+			if(fcntl(fd,F_SETLKW,&lock) == -1){
+				perror("fcntl error");
+				exit(1);
+			}
+			lseek(fd,0,0);
+
+			char beforeRow[BUF_SIZE];
+			beforeRow[0] = '\0';
+			char afterRow[BUF_SIZE];
+			afterRow[0] = '\0';
+			k = 0;
+			count=1;
+			while((count = read(fd,&chr,sizeof(chr)))){
+				if(k>i){
+					strncat(afterRow,&chr,1);
+					int count2 = 1;
+					while((count2 = read(fd,&chr,sizeof(chr)))){
+						strncat(afterRow,&chr,1);
+					}
+					break;
+				}
+				else if(k < i){
+					strncat(beforeRow,&chr,1);
+				}	
+				if(chr == '\n') k++;
+				//printf("%c",chr);
+			}
 
 		    char * newWrite = calloc(1024, sizeof(char));
 		    strcat(newWrite,beforeRow);
@@ -209,9 +240,12 @@ int main(int argc,char* argv[]){
 			
 			lock.l_type = F_UNLCK;
 			
-			sigprocmask(SIG_BLOCK, &mask, NULL);
+			if(sigprocmask(SIG_BLOCK, &mask, NULL) == -1){
+				perror("Signal block error");
+				exit(1);
+			}
 			//send sigusr1 to parent
-			//printf("Singal sending %d\n",i );
+			//printf("Singal sending %d\n",i );;
 			kill(getppid(),SIGUSR1);
 			sigsuspend(&sigset);
 			
@@ -252,22 +286,20 @@ int main(int argc,char* argv[]){
 			afterRow_2[0] = '\0';
 			buffer_2[0] = '\0';
 			while((count = read(fd,&chr,sizeof(chr)))){
-				if(k>i){
-					strncat(afterRow_2,&chr,1);
-					int count2 = 1;
-					while((count2 = read(fd,&chr,sizeof(chr)))){
-						strncat(afterRow_2,&chr,1);
-					}
-					break;
-				}
+				
 				if (k == i){
 					strncat(buffer_2,&chr,1);
 				}
-				else{
-					strncat(beforeRow_2,&chr,1);
-				}	
+				
 				if(chr == '\n') k++;
 				//printf("%c",chr);
+			}
+
+			lock.l_type = F_UNLCK;
+		
+			if(fcntl(fd,F_SETLK,&lock) == -1){
+				perror("fcntl error");
+				exit(1);
 			}
 			//printf("%s",buffer );
 
@@ -287,7 +319,36 @@ int main(int argc,char* argv[]){
 		   	//printf("%lf\n",res_7 );
 
 
-		   	char * newWrite_2 = calloc(1024, sizeof(char));
+
+		 
+
+		    lock.l_type = F_WRLCK;
+			//lock file 
+			if(fcntl(fd,F_SETLKW,&lock) == -1){
+				perror("fcntl error");
+				exit(1);
+			}
+
+			lseek(fd,0,SEEK_SET);
+			count=1;
+			k = 0;
+			while((count = read(fd,&chr,sizeof(chr)))){
+				if(k>i){
+					strncat(afterRow_2,&chr,1);
+					int count2 = 1;
+					while((count2 = read(fd,&chr,sizeof(chr)))){
+						strncat(afterRow_2,&chr,1);
+					}
+					break;
+				}
+				else if(k<i){
+					strncat(beforeRow_2,&chr,1);
+				}	
+				if(chr == '\n') k++;
+				//printf("%c",chr);
+			}
+
+			char * newWrite_2 = calloc(1024, sizeof(char));
 		    strcat(newWrite_2,beforeRow_2);
 		    strcat(newWrite_2,strNewRow_2);
 		    strcat(newWrite_2,afterRow_2);
@@ -314,10 +375,14 @@ int main(int argc,char* argv[]){
 			free(newWrite);
 			free(strNewRow);
 			free(useStrForToken);
-
+			free(newWrite_2);
+			free(strNewRow_2);
 			close(fd);
 
-			sigprocmask(SIG_UNBLOCK, &mask, NULL);
+			if(sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1){
+				perror("Signal block error");
+				exit(1);
+			}
 			
 			_exit(EXIT_SUCCESS);
 		}
@@ -363,9 +428,15 @@ int main(int argc,char* argv[]){
 
 	parent_calculate_error(fd,8);
 
-	sigprocmask(SIG_UNBLOCK, &mask, NULL);
+	if(sigprocmask(SIG_UNBLOCK, &mask, NULL) == -1){
+		perror("Signal block error");
+		return 1;
+	}
 
 	
+	if(ctrlc_signal) {
+		printf("Ctrl+C signal caught\n");
+	}
 	return 0;
 }
 
@@ -482,7 +553,6 @@ void parent_calculate_error(int fd,int x){
 
 	struct flock lock;
 	memset(&lock,0,sizeof(lock));
-	char buffer[BUF_SIZE];
 
 	lock.l_type = F_RDLCK;
 	//lock file 
@@ -495,20 +565,26 @@ void parent_calculate_error(int fd,int x){
 	int count = 0;
 	char chr;
 	int comma_count = 0;
+	int newlineCount = 0;
 	char y_7[10];
 	char p_7[10];
+	y_7[0] = '\0';
+	p_7[0] = '\0';	
 	double y7;
 	double p7;
 	double total_error = 0.0;
 	while((count = read(fd,&chr,sizeof(chr)))){
 		if( chr == '\n'){
 			comma_count = 0;
-			
+			newlineCount++;
 			sscanf(y_7,"%lf",&y7);
 			sscanf(p_7,"%lf",&p7);
 			total_error += fabs(y7-p7);
 			y_7[0] = '\0';
-			p_7[0] = '\0';				
+			p_7[0] = '\0';	
+			if(newlineCount == 8){
+				break;
+			}			
 		}
 		else if(chr == ','){
 			comma_count++;
@@ -528,7 +604,6 @@ void parent_calculate_error(int fd,int x){
 		perror("fcntl error");
 		exit(1);
 	}
-
 	total_error = total_error/8.0;
 	printf("Error of polynomial of degree %d: %.1lf\n",degree,total_error );
 
