@@ -15,6 +15,8 @@
 #include <math.h>
 #include <getopt.h>
 
+#include <semaphore.h>
+
 #define BUFF_SIZE 1024
 
 int main(int argc, char* argv[]){
@@ -58,10 +60,44 @@ int main(int argc, char* argv[]){
     	printf("Argument Error\n");
     	return 1;
     }
+
+    char fifoFileBuffer[1024];
+    int fd;
+    while(((fd = open(filewithfifonames,O_RDONLY)) == -1) && (errno == EINTR));
+    if(fd == -1){
+    	perror("open file error");
+    	return 1;
+    }
+    int readFifoCount = read(fd,fifoFileBuffer,BUFF_SIZE);
+    if(readFifoCount == -1){
+    	perror("Failed to read fifo file");
+    	return 1;
+    }
+
+    if(close(fd) == -1){
+    	perror("Failed to close file");
+    	return 1;
+    }
+
+    //create named semaphore
+    sem_t* sema;
+    sema = sem_open(namedsemaphore,O_CREAT,0666,1);
+    //sem wait
+    sem_wait(sema);
+    //critical section //
+
+    //critical section //
+    sem_post(sema);
+    //end critical section
+
     printf("%d\n", hasporaroornot );
     printf("%s\n",nameofsharedmemory );
     printf("%s\n",filewithfifonames );
     printf("%s\n",namedsemaphore );
-
+    printf("-------------------\n");
+    printf("%s\n",fifoFileBuffer );
+    
+    sem_close(sema);
+    sem_unlink(namedsemaphore);
 	return 0;
 }
