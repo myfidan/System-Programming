@@ -16,7 +16,7 @@
 #include <getopt.h>
 
 #include <semaphore.h>
-
+#include <sys/mman.h>
 #define BUFF_SIZE 1024
 
 int main(int argc, char* argv[]){
@@ -82,6 +82,34 @@ int main(int argc, char* argv[]){
     //create named semaphore
     sem_t* sema;
     sema = sem_open(namedsemaphore,O_CREAT,0666,1);
+
+    //Shared memory create
+    int fd_shm = shm_open(nameofsharedmemory, O_CREAT | O_RDWR,0666);
+    if(fd_shm < 0){
+    	perror("shm_open error");
+    	return 1;
+    }
+    struct stat check_shm_stat;
+
+    if(fstat(fd_shm,&check_shm_stat) == -1){
+    	perror("fstat error");
+    	return 1;
+    }
+
+    if(check_shm_stat.st_size == 0){
+    	printf("shm size 0\n");
+    } 
+    else{
+    	printf("shm size not 0\n");
+    }
+
+    char* addr = mmap(NULL,check_shm_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm,0);
+
+    if(close(fd_shm) == -1){	// fd_shm is no longer needed  
+    	perror("close error");
+    	return 1;
+    }
+
     //sem wait
     sem_wait(sema);
     //critical section //
@@ -96,7 +124,10 @@ int main(int argc, char* argv[]){
     printf("%s\n",namedsemaphore );
     printf("-------------------\n");
     printf("%s\n",fifoFileBuffer );
-    
+    //close and unlink shm
+    munmap(addr,check_shm_stat.st_size);
+    shm_unlink(nameofsharedmemory);
+    //close and unlink sema
     sem_close(sema);
     sem_unlink(namedsemaphore);
 	return 0;
