@@ -17,7 +17,9 @@
 
 #include <semaphore.h>
 #include <sys/mman.h>
+
 #define BUFF_SIZE 1024
+#define FIFO_PERM (S_IRUSR | S_IWUSR)
 
 char* findFifo(char* addr, char* fifoFileBuffer);
 
@@ -63,14 +65,20 @@ int main(int argc, char* argv[]){
     	return 1;
     }
 
-    char fifoFileBuffer[1024];
+    char fifoFileBuffer[BUFF_SIZE];
+    fifoFileBuffer[0] = '\0';
     int fd;
     while(((fd = open(filewithfifonames,O_RDONLY)) == -1) && (errno == EINTR));
     if(fd == -1){
     	perror("open file error");
     	return 1;
     }
-    int readFifoCount = read(fd,fifoFileBuffer,BUFF_SIZE);
+    char c;
+    int readFifoCount;
+    while((readFifoCount = read(fd,&c,1))){
+    	strncat(fifoFileBuffer,&c,1);
+    }
+    printf("%s\n",fifoFileBuffer );
     if(readFifoCount == -1){
     	perror("Failed to read fifo file");
     	return 1;
@@ -87,7 +95,6 @@ int main(int argc, char* argv[]){
 
     //Shared memory create
     
-
     //sem wait
     sem_wait(sema);
     //critical section //
@@ -115,23 +122,21 @@ int main(int argc, char* argv[]){
 		addr = mmap(NULL,BUFF_SIZE*4, PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm,0);
 		
 		processFifoName = findFifo(addr,fifoFileBuffer);
-		strncat(processFifoName,&delimeter,1);
 
 		printf("%s\n",processFifoName);
 		memcpy(addr,processFifoName,strlen(processFifoName)+1);
-
+		strncat(addr,&delimeter,1);
     } 
     else{	//not first time
     	printf("shm size not 0\n");
     	addr = mmap(NULL,check_shm_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm,0);
 
     	processFifoName = findFifo(addr,fifoFileBuffer);
-		strncat(processFifoName,&delimeter,1);
 
 		printf("%s\n",processFifoName);
 
 		strcat(addr,processFifoName);
-
+		strncat(addr,&delimeter,1);
     	//write(STDOUT_FILENO,addr,check_shm_stat.st_size);
     	//strcat(addr,x);
     }
@@ -140,15 +145,40 @@ int main(int argc, char* argv[]){
     if(haspotatoornot > 0){
     	char appendPotato[20];
     	appendPotato[0] = '\0';
-    	snprintf (appendPotato, 20, "*%ld_%d*", (long)getpid(), haspotatoornot);
+    	snprintf (appendPotato, 20, "%ld_%d", (long)getpid(), haspotatoornot);
     	strncat(appendPotato,&delimeter,1);
     	strcat(addr,appendPotato);
     }
    
     printf("%s\n",addr );
-
+    //create fifo
+    if(mkfifo(processFifoName,FIFO_PERM) == -1){
+    	if(errno != EEXIST){
+    		perror("fifo error");
+    		return 1;
+    	}
+    }
     //critical section //
     sem_post(sema);
+
+
+    /*
+    int fifoFd;
+    if(haspotatoornot > 0){ // if process has potatp
+    	while(((fifoFd = open(processFifoName,O_WRONLY)) == -1) && (errno == EINTR));
+    	if(fifoFd == -1){
+    		perror("open fifo error");
+    		return 1;
+    	}
+    }
+    else{
+    	while(((fifoFd = open(processFifoName,O_RDONLY)) == -1) && (errno == EINTR));
+    	if(fifoFd == -1){
+    		perror("open fifo error");
+    		return 1;
+    	}
+    }
+*/
     //end critical section
     if(close(fd_shm) == -1){	// fd_shm is no longer needed  
     	perror("close error");
