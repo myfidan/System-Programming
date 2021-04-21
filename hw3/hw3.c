@@ -24,6 +24,7 @@
 char* findFifo(char* addr, char* fifoFileBuffer);
 char* find_write_fifo(char* addr);
 int take_potato_id(char* readFifo);
+void update_shr_mem(char* addr,int potato_id);
 
 int main(int argc, char* argv[]){
 
@@ -80,7 +81,7 @@ int main(int argc, char* argv[]){
     while((readFifoCount = read(fd,&c,1))){
     	strncat(fifoFileBuffer,&c,1);
     }
-    printf("%s\n",fifoFileBuffer );
+
     if(readFifoCount == -1){
     	perror("Failed to read fifo file");
     	return 1;
@@ -121,23 +122,19 @@ int main(int argc, char* argv[]){
     char delimeter = '-';
     char* processFifoName;
     if(check_shm_stat.st_size == 0){ //first time shared memory open
-    	printf("shm size 0\n");
     	ftruncate(fd_shm,BUFF_SIZE*4);
 		addr = mmap(NULL,BUFF_SIZE*4, PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm,0);
 		
 		processFifoName = findFifo(addr,fifoFileBuffer);
 
-		printf("%s\n",processFifoName);
 		memcpy(addr,processFifoName,strlen(processFifoName)+1);
 		strncat(addr,&delimeter,1);
     } 
     else{	//not first time
-    	printf("shm size not 0\n");
     	addr = mmap(NULL,check_shm_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd_shm,0);
 
     	processFifoName = findFifo(addr,fifoFileBuffer);
 
-		printf("%s\n",processFifoName);
 
 		strcat(addr,processFifoName);
 		strncat(addr,&delimeter,1);
@@ -159,7 +156,6 @@ int main(int argc, char* argv[]){
     	strcat(addr,appendPotato);
     }
    
-    printf("%s\n",addr );
     //create fifo
     if(mkfifo(processFifoName,FIFO_PERM) == -1){
     	if(errno != EEXIST){
@@ -177,10 +173,8 @@ int main(int argc, char* argv[]){
     	
     	sem_wait(fifo_sema);
     	char* find_fifo_for_write = find_write_fifo(addr);
-    	printf("finded_fifo = %s\n",find_fifo_for_write );
     	//delete last character R
     	find_fifo_for_write[strlen(find_fifo_for_write)-1]= '\0';
-    	printf("finded_fifo_after_remove = %s\n",find_fifo_for_write );
 
 
 		
@@ -190,6 +184,7 @@ int main(int argc, char* argv[]){
     		return 1;
     	}
     	printf("%ld sending potato number %d to %s\n",(long)getpid(),take_potato_id(current_potato_id) ,find_fifo_for_write);
+    	printf("addr = %s\n",addr );
     	write(fifoFd,current_potato_id,strlen(current_potato_id));
 
     }
@@ -222,7 +217,15 @@ int main(int argc, char* argv[]){
     		read(fifoFd,&car,1);
     		strncat(readFifo,&car,1);
     	}while(car != '-');
-    	printf("%ld receiving potato number %d from %s\n", (long)getpid(),take_potato_id(readFifo),processFifoName);
+    	int potato_id = take_potato_id(readFifo);
+    	printf("%ld receiving potato number %d from %s\n", (long)getpid(),potato_id,processFifoName);
+
+    	//decrease 1 from shared memory for this potato
+    	//critical section
+    	sem_wait(sema);
+    	update_shr_mem(addr,potato_id);
+    	sem_post(sema);
+    	printf("addr = %s\n",addr );
     }
 
     //end critical section
@@ -291,4 +294,64 @@ char* find_write_fifo(char* addr){
 
 int take_potato_id(char* readFifo){
 	return atoi(readFifo);
+}
+
+void update_shr_mem(char* addr,int potato_id){
+	char* tempstr = calloc(strlen(addr)+1, sizeof(char));
+	strcpy(tempstr, addr);
+
+	char* newAddr = calloc(strlen(addr)+1, sizeof(char));
+	newAddr[0] = '\0';
+
+	char potatoID[10];
+	char potatoSwitch[10];
+
+	const char s[2] = "-";
+	const char s2[2] = "_";
+	char del = '-';
+	char del2 = '_';
+	char *token;
+	token = strtok(tempstr, s);
+
+
+	while( token != NULL ){
+	    if(token[0] >= '0' && token[0] <= '9'){
+	    	char tempstr2[20];
+	    	tempstr2[0] = '\0';
+	    	strcpy(tempstr2,token);
+
+	    	char* token2;
+	    	token2 = strtok(tempstr2,s2); //pid
+	    	strcpy(potatoID,token2);
+	    	if(atoi(potatoID) == potato_id){
+	    		strcat(newAddr,token2);
+	    		strncat(newAddr,&del2,1);
+
+		    	token2 = strtok(NULL,s2);	//number of swtich needed for potato
+		    	int num_switch = atoi(token2);
+		    	num_switch--;
+		    	char newSwitch[10];
+		    	snprintf(newSwitch,10,"%d",num_switch);
+		    	strcat(newAddr,newSwitch);
+		    	strncat(newAddr,&del,1);
+	    	}
+	    	else{
+	    		strcat(newAddr,token2);
+	    		strncat(newAddr,&del2,1);
+
+	    		token2 = strtok(NULL,s2);	//number of swtich needed for potato
+		    	strcpy(potatoSwitch,token2);
+		    	strcat(newAddr,token2);
+		    	strncat(newAddr,&del,1);
+	    	}
+	    	token = strtok(NULL, s);
+	    }
+	    else{
+	    	strcat(newAddr,token);
+	    	strncat(newAddr,&del,1);
+	    	token = strtok(NULL, s);
+	    }
+    }
+    strcpy(addr,newAddr);
+	free(tempstr);
 }
