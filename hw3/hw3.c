@@ -25,6 +25,7 @@ char* findFifo(char* addr, char* fifoFileBuffer);
 char* find_write_fifo(char* addr);
 int take_potato_id(char* readFifo);
 void update_shr_mem(char* addr,int potato_id);
+void delete_opened_write_fifo(char* addr,char* find_fifo_for_write);
 
 int main(int argc, char* argv[]){
 
@@ -172,7 +173,10 @@ int main(int argc, char* argv[]){
     if(haspotatoornot > 0){ // if process has potato
     	
     	sem_wait(fifo_sema);
+
+    	sem_wait(sema);
     	char* find_fifo_for_write = find_write_fifo(addr);
+    	sem_post(sema);
     	//delete last character R
     	find_fifo_for_write[strlen(find_fifo_for_write)-1]= '\0';
 
@@ -183,10 +187,55 @@ int main(int argc, char* argv[]){
     		perror("open fifo error");
     		return 1;
     	}
+    	
+
     	printf("%ld sending potato number %d to %s\n",(long)getpid(),take_potato_id(current_potato_id) ,find_fifo_for_write);
-    	printf("addr = %s\n",addr );
+   
+
+    	sem_wait(sema);
+    	delete_opened_write_fifo(addr,find_fifo_for_write);
+    	sem_post(sema);
     	write(fifoFd,current_potato_id,strlen(current_potato_id));
 
+
+
+    	sem_wait(sema); // block shared memory because I will use it
+    	// /home/cse312/Desktop/fifos/fifo2-/home/cse312/Desktop/fifos/fifo2R-
+    	char fifo_read_name[200];
+    	fifo_read_name[0] = '\0';
+    	char readDelimeter = 'R';
+    	strcat(fifo_read_name,processFifoName);
+    	strncat(fifo_read_name,&readDelimeter,1);
+    	strncat(fifo_read_name,&delimeter,1);
+    	strcat(addr,fifo_read_name);
+
+    	sem_post(sema); // unblock shared memory my work is done with it
+
+    	sem_post(fifo_sema);
+    	//After send potato now wait for potato
+    	//open own fifo for read and wait
+    	while(((fifoFd = open(processFifoName,O_RDONLY)) == -1) && (errno == EINTR));
+    	if(fifoFd == -1){
+    		perror("open fifo error");
+    		return 1;
+    	}
+
+    	char readFifo[20];
+    	readFifo[0] = '\0';
+    	char car;
+    	do{
+    		read(fifoFd,&car,1);
+    		strncat(readFifo,&car,1);
+    	}while(car != '-');
+    	int potato_id = take_potato_id(readFifo);
+    	printf("%ld receiving potato number %d from %s\n", (long)getpid(),potato_id,processFifoName);
+
+    	//decrease 1 from shared memory for this potato
+    	//critical section
+    	sem_wait(sema);
+    	update_shr_mem(addr,potato_id);
+    	sem_post(sema);
+    	
     }
     else{
     	//add his fifo to shared memory to find a write process
@@ -225,7 +274,37 @@ int main(int argc, char* argv[]){
     	sem_wait(sema);
     	update_shr_mem(addr,potato_id);
     	sem_post(sema);
-    	printf("addr = %s\n",addr );
+
+
+    	sem_wait(fifo_sema);
+
+    	//Now find a waiting fifo and send potato to him
+    	sem_wait(sema);
+    	char* find_fifo_for_write = find_write_fifo(addr);
+    	sem_post(sema);
+    	//delete last character R
+    	find_fifo_for_write[strlen(find_fifo_for_write)-1]= '\0';
+
+
+		
+    	while(((fifoFd = open(find_fifo_for_write,O_WRONLY)) == -1) && (errno == EINTR));
+    	if(fifoFd == -1){
+    		perror("open fifo error");
+    		return 1;
+    	}
+
+    	current_potato_id[0] = '\0';
+ 	  	snprintf(current_potato_id,10,"%ld",(long)potato_id);
+   		strncat(current_potato_id,&delimeter,1);
+
+    	printf("%ld sending potato number %d to %s\n",(long)getpid(),take_potato_id(current_potato_id) ,find_fifo_for_write);
+   
+
+    	sem_wait(sema);
+    	delete_opened_write_fifo(addr,find_fifo_for_write);
+    	sem_post(sema);
+    	write(fifoFd,current_potato_id,strlen(current_potato_id));
+
     }
 
     //end critical section
@@ -303,11 +382,8 @@ void update_shr_mem(char* addr,int potato_id){
 	char* newAddr = calloc(strlen(addr)+1, sizeof(char));
 	newAddr[0] = '\0';
 
-	char potatoID[10];
-	char potatoSwitch[10];
 
 	const char s[2] = "-";
-	const char s2[2] = "_";
 	char del = '-';
 	char del2 = '_';
 	char *token;
@@ -316,42 +392,75 @@ void update_shr_mem(char* addr,int potato_id){
 
 	while( token != NULL ){
 	    if(token[0] >= '0' && token[0] <= '9'){
-	    	char tempstr2[20];
-	    	tempstr2[0] = '\0';
-	    	strcpy(tempstr2,token);
-
-	    	char* token2;
-	    	token2 = strtok(tempstr2,s2); //pid
-	    	strcpy(potatoID,token2);
-	    	if(atoi(potatoID) == potato_id){
-	    		strcat(newAddr,token2);
-	    		strncat(newAddr,&del2,1);
-
-		    	token2 = strtok(NULL,s2);	//number of swtich needed for potato
-		    	int num_switch = atoi(token2);
-		    	num_switch--;
-		    	char newSwitch[10];
-		    	snprintf(newSwitch,10,"%d",num_switch);
-		    	strcat(newAddr,newSwitch);
-		    	strncat(newAddr,&del,1);
+	    	char total[20];
+	    	total[0] = '\0';
+	    	char firstpart[10];
+	    	firstpart[0] = '\0';
+	    	char secondpart[10];
+	    	secondpart[0] = '\0';
+	    	int j = 0;
+	    	int i = 0;
+	    	for(i=0; i<strlen(token); i++){
+	    		if(token[i] == '_') j = 1;
+	    		if(j == 0){
+	    			strncat(firstpart,&token[i],1);
+	    		}
+	    		else{
+	    			if(token[i] != '_')
+	    			strncat(secondpart,&token[i],1);
+	    		}
 	    	}
-	    	else{
-	    		strcat(newAddr,token2);
-	    		strncat(newAddr,&del2,1);
-
-	    		token2 = strtok(NULL,s2);	//number of swtich needed for potato
-		    	strcpy(potatoSwitch,token2);
-		    	strcat(newAddr,token2);
-		    	strncat(newAddr,&del,1);
+	    	strcat(total,firstpart);
+	    	strncat(total,&del2,1);
+	    	if(atoi(firstpart) == potato_id){
+	    		int number = atoi(secondpart);
+		    	number--;
+		    	snprintf(secondpart,10,"%d",number);
+		    	
 	    	}
-	    	token = strtok(NULL, s);
+	    	
+	    	strcat(total,secondpart);
+	    	strncat(total,&del,1);
+	    	strcat(newAddr,total);
 	    }
 	    else{
 	    	strcat(newAddr,token);
 	    	strncat(newAddr,&del,1);
-	    	token = strtok(NULL, s);
+	    	
 	    }
+    	token = strtok(NULL, s);
     }
     strcpy(addr,newAddr);
+    //printf("After addr = %s\n", addr);
+    free(newAddr);
+	free(tempstr);
+}
+
+
+void delete_opened_write_fifo(char* addr,char* find_fifo_for_write){
+
+	char* tempstr = calloc(strlen(addr)+1, sizeof(char));
+	strcpy(tempstr, addr);
+
+	char* newAddr = calloc(strlen(addr)+1, sizeof(char));
+	newAddr[0] = '\0';
+
+	char* token;
+	const char s[2] = "-";
+	char del = '-';
+
+	token = strtok(tempstr, s);
+
+	while( token != NULL ){
+
+		if(token[strlen(token)-1] != 'R'){
+			strcat(newAddr,token);
+			strncat(newAddr,&del,1);
+		}
+		token = strtok(NULL, s);
+	}
+	
+	strcpy(addr,newAddr);
+	free(newAddr);
 	free(tempstr);
 }
