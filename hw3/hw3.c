@@ -20,12 +20,22 @@
 
 #define BUFF_SIZE 1024
 #define FIFO_PERM (S_IRUSR | S_IWUSR)
+char hold[20];
 
 char* findFifo(char* addr, char* fifoFileBuffer);
 char* find_write_fifo(char* addr);
 int take_potato_id(char* readFifo);
 void update_shr_mem(char* addr,int potato_id);
 void delete_opened_write_fifo(char* addr,char* find_fifo_for_write);
+int check_potato_cooldown(char* addr);
+char* parse_fifo_name(char* fifo_path);
+
+
+sig_atomic_t flag = 0;
+
+void handler(int signal_number){
+	++flag;
+}
 
 int main(int argc, char* argv[]){
 
@@ -68,6 +78,12 @@ int main(int argc, char* argv[]){
     	printf("Argument Error\n");
     	return 1;
     }
+
+
+    struct sigaction sa;
+    memset(&sa,0,sizeof(sa));
+    sa.sa_handler = &handler;
+    sigaction(SIGINT,&sa,NULL);
 
     char fifoFileBuffer[BUFF_SIZE];
     fifoFileBuffer[0] = '\0';
@@ -171,140 +187,188 @@ int main(int argc, char* argv[]){
     
     int fifoFd;
     if(haspotatoornot > 0){ // if process has potato
-    	
-    	sem_wait(fifo_sema);
+    	int switch_num = 1;
+    	while(1){
+    		
 
-    	sem_wait(sema);
-    	char* find_fifo_for_write = find_write_fifo(addr);
-    	sem_post(sema);
-    	//delete last character R
-    	find_fifo_for_write[strlen(find_fifo_for_write)-1]= '\0';
+	    	sem_wait(fifo_sema);
+
+	    	sem_wait(sema);
+	    	char* find_fifo_for_write = find_write_fifo(addr);
+	    	//delete last character R
+	    	find_fifo_for_write[strlen(find_fifo_for_write)-1]= '\0';
+	    	sem_post(sema);
+	    	
 
 
-		
-    	while(((fifoFd = open(find_fifo_for_write,O_WRONLY)) == -1) && (errno == EINTR));
-    	if(fifoFd == -1){
-    		perror("open fifo error");
-    		return 1;
+			
+	    	while(((fifoFd = open(find_fifo_for_write,O_WRONLY)) == -1) && (errno == EINTR));
+	    	if(fifoFd == -1){
+	    		perror("open fifo error");
+	    		return 1;
+	    	}
+	    	
+	    	sem_wait(sema);
+	    	
+	    	printf("%ld sending potato number %d to %s;this is switch number %d\n",(long)getpid(),take_potato_id(current_potato_id) ,parse_fifo_name(find_fifo_for_write),switch_num);
+	   		switch_num += 2;
+	   		sem_post(sema);
+
+	    	sem_wait(sema);
+	    	delete_opened_write_fifo(addr,find_fifo_for_write);
+	    	sem_post(sema);
+	    	if(flag > 0){
+	    		printf("CTRL C signal arrive\n");
+	    		char* sigCatch = "***-";
+	    		write(fifoFd,sigCatch,strlen(sigCatch));
+	    		break;
+	    	}
+	    	write(fifoFd,current_potato_id,strlen(current_potato_id));
+
+
+
+	    	sem_wait(sema); // block shared memory because I will use it
+	    	// /home/cse312/Desktop/fifos/fifo2-/home/cse312/Desktop/fifos/fifo2R-
+	    	char fifo_read_name[200];
+	    	fifo_read_name[0] = '\0';
+	    	char readDelimeter = 'R';
+	    	strcat(fifo_read_name,processFifoName);
+	    	strncat(fifo_read_name,&readDelimeter,1);
+	    	strncat(fifo_read_name,&delimeter,1);
+	    	strcat(addr,fifo_read_name);
+
+	    	sem_post(sema); // unblock shared memory my work is done with it
+
+	    	sem_post(fifo_sema);
+	    	//After send potato now wait for potato
+	    	//open own fifo for read and wait
+	    	while(((fifoFd = open(processFifoName,O_RDONLY)) == -1) && (errno == EINTR));
+	    	if(fifoFd == -1){
+	    		perror("open fifo error");
+	    		return 1;
+	    	}
+
+	    	char readFifo[20];
+	    	readFifo[0] = '\0';
+	    	char car;
+	    	do{
+	    		read(fifoFd,&car,1);
+	    		strncat(readFifo,&car,1);
+	    	}while(car != '-');
+	    	if(strcmp(readFifo,"***-") == 0) break;
+	    	int potato_id = take_potato_id(readFifo);
+	    	if(potato_id == 0) break; //means read EOF
+	    	printf("%ld receiving potato number %d from %s\n", (long)getpid(),potato_id,parse_fifo_name(processFifoName));
+
+	    	//decrease 1 from shared memory for this potato
+	    	//critical section
+	    	sem_wait(sema);
+	    	update_shr_mem(addr,potato_id);
+	    	sem_post(sema);
+	    	sem_wait(sema);
+    		int check = check_potato_cooldown(addr);
+    		sem_post(sema);
+    		if(check == 0){
+    			break;
+    		}
+
+	    	current_potato_id[0] = '\0';
+	    	snprintf (current_potato_id, 10, "%d",potato_id );
+	    	strncat(current_potato_id,&delimeter,1);
     	}
-    	
-
-    	printf("%ld sending potato number %d to %s\n",(long)getpid(),take_potato_id(current_potato_id) ,find_fifo_for_write);
-   
-
-    	sem_wait(sema);
-    	delete_opened_write_fifo(addr,find_fifo_for_write);
-    	sem_post(sema);
-    	write(fifoFd,current_potato_id,strlen(current_potato_id));
-
-
-
-    	sem_wait(sema); // block shared memory because I will use it
-    	// /home/cse312/Desktop/fifos/fifo2-/home/cse312/Desktop/fifos/fifo2R-
-    	char fifo_read_name[200];
-    	fifo_read_name[0] = '\0';
-    	char readDelimeter = 'R';
-    	strcat(fifo_read_name,processFifoName);
-    	strncat(fifo_read_name,&readDelimeter,1);
-    	strncat(fifo_read_name,&delimeter,1);
-    	strcat(addr,fifo_read_name);
-
-    	sem_post(sema); // unblock shared memory my work is done with it
-
-    	sem_post(fifo_sema);
-    	//After send potato now wait for potato
-    	//open own fifo for read and wait
-    	while(((fifoFd = open(processFifoName,O_RDONLY)) == -1) && (errno == EINTR));
-    	if(fifoFd == -1){
-    		perror("open fifo error");
-    		return 1;
-    	}
-
-    	char readFifo[20];
-    	readFifo[0] = '\0';
-    	char car;
-    	do{
-    		read(fifoFd,&car,1);
-    		strncat(readFifo,&car,1);
-    	}while(car != '-');
-    	int potato_id = take_potato_id(readFifo);
-    	printf("%ld receiving potato number %d from %s\n", (long)getpid(),potato_id,processFifoName);
-
-    	//decrease 1 from shared memory for this potato
-    	//critical section
-    	sem_wait(sema);
-    	update_shr_mem(addr,potato_id);
-    	sem_post(sema);
     	
     }
     else{
+    	int switch_num = 2;
     	//add his fifo to shared memory to find a write process
-
-    	sem_wait(sema); // block shared memory because I will use it
-    	// /home/cse312/Desktop/fifos/fifo2-/home/cse312/Desktop/fifos/fifo2R-
-    	char fifo_read_name[200];
-    	fifo_read_name[0] = '\0';
-    	char readDelimeter = 'R';
-    	strcat(fifo_read_name,processFifoName);
-    	strncat(fifo_read_name,&readDelimeter,1);
-    	strncat(fifo_read_name,&delimeter,1);
-    	strcat(addr,fifo_read_name);
-
-    	sem_post(sema); // unblock shared memory my work is done with it
-
-    	sem_post(fifo_sema);
-    	
-    	while(((fifoFd = open(processFifoName,O_RDONLY)) == -1) && (errno == EINTR));
-    	if(fifoFd == -1){
-    		perror("open fifo error");
-    		return 1;
-    	}
-    	char readFifo[20];
-    	readFifo[0] = '\0';
-    	char car;
     	do{
-    		read(fifoFd,&car,1);
-    		strncat(readFifo,&car,1);
-    	}while(car != '-');
-    	int potato_id = take_potato_id(readFifo);
-    	printf("%ld receiving potato number %d from %s\n", (long)getpid(),potato_id,processFifoName);
 
-    	//decrease 1 from shared memory for this potato
-    	//critical section
-    	sem_wait(sema);
-    	update_shr_mem(addr,potato_id);
-    	sem_post(sema);
+	    	sem_wait(sema); // block shared memory because I will use it
+	    	// /home/cse312/Desktop/fifos/fifo2-/home/cse312/Desktop/fifos/fifo2R-
+	    	char fifo_read_name[200];
+	    	fifo_read_name[0] = '\0';
+	    	char readDelimeter = 'R';
+	    	strcat(fifo_read_name,processFifoName);
+	    	strncat(fifo_read_name,&readDelimeter,1);
+	    	strncat(fifo_read_name,&delimeter,1);
+	    	strcat(addr,fifo_read_name);
+
+	    	sem_post(sema); // unblock shared memory my work is done with it
+
+	    	sem_post(fifo_sema);
+	    	
+	    	while(((fifoFd = open(processFifoName,O_RDONLY)) == -1) && (errno == EINTR));
+	    	if(fifoFd == -1){
+	    		perror("open fifo error");
+	    		return 1;
+	    	}
+	    	char readFifo[20];
+	    	readFifo[0] = '\0';
+	    	char car;
+	    	do{
+	    		read(fifoFd,&car,1);
+	    		strncat(readFifo,&car,1);
+	    	}while(car != '-');
+
+	    	if(strcmp(readFifo,"***-") == 0) break;
+	    	int potato_id = take_potato_id(readFifo);
+	    	if(potato_id == 0) break; //means read EOF   
+	    	printf("%ld receiving potato number %d from %s\n", (long)getpid(),potato_id,parse_fifo_name(processFifoName));
+
+	    	//decrease 1 from shared memory for this potato
+	    	//critical section
+	    	sem_wait(sema);
+	    	update_shr_mem(addr,potato_id);
+	    	sem_post(sema);
+
+	    	sem_wait(sema);
+    		int check = check_potato_cooldown(addr);
+    		sem_post(sema);
+    		if(check == 0){
+    			break;
+    		}
+	    	sem_wait(fifo_sema);
+
+	    	//Now find a waiting fifo and send potato to him
+	    	sem_wait(sema);
+	    	char* find_fifo_for_write = find_write_fifo(addr);
+	    	//delete last character R
+	    	find_fifo_for_write[strlen(find_fifo_for_write)-1]= '\0';
+	    	sem_post(sema);
+	    	
 
 
-    	sem_wait(fifo_sema);
+			
+	    	while(((fifoFd = open(find_fifo_for_write,O_WRONLY)) == -1) && (errno == EINTR));
+	    	if(fifoFd == -1){
+	    		perror("open fifo error");
+	    		return 1;
+	    	}
 
-    	//Now find a waiting fifo and send potato to him
-    	sem_wait(sema);
-    	char* find_fifo_for_write = find_write_fifo(addr);
-    	sem_post(sema);
-    	//delete last character R
-    	find_fifo_for_write[strlen(find_fifo_for_write)-1]= '\0';
+	    	current_potato_id[0] = '\0';
+	 	  	snprintf(current_potato_id,10,"%ld",(long)potato_id);
+	   		strncat(current_potato_id,&delimeter,1);
 
+	   		sem_wait(sema);
+	    	printf("%ld sending potato number %d to %s; this is switch number %d\n",(long)getpid(),take_potato_id(current_potato_id) ,parse_fifo_name(find_fifo_for_write),switch_num);
+	    	switch_num += 2;
+	   		sem_post(sema);
 
-		
-    	while(((fifoFd = open(find_fifo_for_write,O_WRONLY)) == -1) && (errno == EINTR));
-    	if(fifoFd == -1){
-    		perror("open fifo error");
-    		return 1;
-    	}
+	    	sem_wait(sema);
+	    	delete_opened_write_fifo(addr,find_fifo_for_write);
+	    	sem_post(sema);
+	    	if(flag > 0){
+	    		printf("CTRL C signal arrive\n");
+	    		char* sigCatch = "***-";
+	    		write(fifoFd,sigCatch,strlen(sigCatch));
+	    		break;
+	    	}
+	    	write(fifoFd,current_potato_id,strlen(current_potato_id));
+			
 
-    	current_potato_id[0] = '\0';
- 	  	snprintf(current_potato_id,10,"%ld",(long)potato_id);
-   		strncat(current_potato_id,&delimeter,1);
+	    	
 
-    	printf("%ld sending potato number %d to %s\n",(long)getpid(),take_potato_id(current_potato_id) ,find_fifo_for_write);
-   
-
-    	sem_wait(sema);
-    	delete_opened_write_fifo(addr,find_fifo_for_write);
-    	sem_post(sema);
-    	write(fifoFd,current_potato_id,strlen(current_potato_id));
-
+    	}while(1);
     }
 
     //end critical section
@@ -313,16 +377,19 @@ int main(int argc, char* argv[]){
     	return 1;
     }
 
+    if(haspotatoornot > 0 && check_potato_cooldown(addr) == 0){
+    	printf("pid=%ld; potato number %ld has cooled down\n",(long)getpid(),(long) getpid());
+    }
   
     //close and unlink shm
     //close and unlink sema
-    //munmap(addr,check_shm_stat.st_size);
-    //shm_unlink(nameofsharedmemory);
-    //sem_close(sema);
-    //sem_unlink(namedsemaphore);
+    munmap(addr,check_shm_stat.st_size);
+    shm_unlink(nameofsharedmemory);
+    sem_close(sema);
+    sem_unlink(namedsemaphore);
 
-    //sem_close(fifo_sema);
-    //sem_unlink("/fifosem");
+    sem_close(fifo_sema);
+    sem_unlink("/fifosem");
 	return 0;
 }
 
@@ -464,3 +531,69 @@ void delete_opened_write_fifo(char* addr,char* find_fifo_for_write){
 	free(newAddr);
 	free(tempstr);
 }
+
+
+int check_potato_cooldown(char* addr){
+	char* tempstr = calloc(strlen(addr)+1, sizeof(char));
+	strcpy(tempstr, addr);
+
+
+	const char s[2] = "-";
+	
+	char *token;
+	token = strtok(tempstr, s);
+	int check = 0;
+	while( token != NULL ){
+	    if(token[0] >= '0' && token[0] <= '9'){
+	    	char firstpart[10];
+	    	firstpart[0] = '\0';
+	    	char secondpart[10];
+	    	secondpart[0] = '\0';
+	    	int j = 0;
+	    	int i = 0;
+	    	for(i=0; i<strlen(token); i++){
+	    		if(token[i] == '_') j = 1;
+	    		if(j == 0){
+	    			strncat(firstpart,&token[i],1);
+	    		}
+	    		else{
+	    			if(token[i] != '_')
+	    			strncat(secondpart,&token[i],1);
+	    		}
+	    	}
+	    	
+	    	int number = atoi(secondpart);
+		    if(number != 0){
+		    	check = 1;
+		    	break;
+		    }
+
+	    }
+	    
+    	token = strtok(NULL, s);
+    }
+
+	free(tempstr);
+	return check;
+}
+
+
+char* parse_fifo_name(char* fifo_path){
+	char* tempstr = calloc(strlen(fifo_path)+1, sizeof(char));
+	strcpy(tempstr, fifo_path);
+
+	char* token;
+	const char s[2] = "/";
+	hold[0] = '\0';
+	token = strtok(tempstr, s);
+
+	while( token != NULL ){
+
+		strcpy(hold,token);
+		token = strtok(NULL, s);
+	}
+
+	free(tempstr);
+	return hold;
+}
+
