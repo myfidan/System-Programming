@@ -119,7 +119,15 @@ int main(int argc, char* argv[]){
     m1 = sem_open("/m1",O_CREAT,0666,0);
     sem_t* m2;
     m2 = sem_open("/m2",O_CREAT,0666,0);
-    
+    //Citizen semaphore
+    sem_t* civ;
+    civ = sem_open("/civ",O_CREAT,0666,0);
+    //vaccinator semaphore
+    sem_t* atomic_wait;
+    atomic_wait = sem_open("/atomic_wait",O_CREAT,0666,0);
+    // semaphore I use for syncronization between vaccinator and vaccines
+    sem_t* removeVac;
+    removeVac = sem_open("/removeVac",O_CREAT,0666,0);
     //processes
     pid_t nurse[n];
     pid_t vaccinator[v];
@@ -159,6 +167,12 @@ int main(int argc, char* argv[]){
 					sem_getvalue(m2,&valuem2);	
 				    printf("Nurse %d (pid=%ld) has brought vaccine %c: the clinic has %d vaccine1 and %d vaccine2.\n",
 				    	i+1,(long)getpid(),chr,valuem1,valuem2);
+				    if(valuem1 > 0 && valuem2 > 0){
+				    	sem_wait(m1);
+				    	sem_wait(m2);
+				    	sem_post(atomic_wait);
+				    	sem_wait(removeVac);
+				    }
 				    sem_post(mshare);
 				    //sem_post(full);
     			}
@@ -183,14 +197,16 @@ int main(int argc, char* argv[]){
     		int i = 0;
     		while(i<9){
 
-	    		//sem_wait(full);
-	    		sem_wait(m1);
-	    		sem_wait(m2);
-	    		sem_wait(mshare);
-				printf("%ld remove 1 vaccine\n",(long) getpid());
+	    		sem_wait(atomic_wait);
+				
+				printf("%ld remove 2 vaccine\n",(long) getpid());
 				remove_1and2(addr);
-			    sem_post(mshare);
-			    sem_post(empty);
+				sem_post(civ);
+
+				sem_post(empty);
+				sem_post(empty);
+				sem_post(removeVac);
+			    
     			i++;
     		}
 
@@ -209,6 +225,10 @@ int main(int argc, char* argv[]){
 
     	if(citizen[i] == 0){ // citizen code
 
+    		for(int j=0; j<t; j++){
+    			sem_wait(civ);
+    			printf("Citizen %d (pid=%ld) is vaccinated for the %dth time\n",i,(long)getpid(),j);
+    		}
     		//printf("citizen %ld\n", (long)getpid());
     		_exit(EXIT_SUCCESS);
     	}
@@ -239,6 +259,14 @@ int main(int argc, char* argv[]){
 	sem_close(m2);
     sem_unlink("/m2");
 
+    sem_close(civ);
+    sem_unlink("/civ");
+
+    sem_close(removeVac);
+    sem_unlink("/removeVac");
+
+    sem_close(atomic_wait);
+    sem_unlink("/atomic_wait");
 
     shm_unlink("/vaccineBuf");
 	return 0;
