@@ -132,6 +132,8 @@ int main(int argc, char* argv[]){
     sem_t* removeVac;
     removeVac = sem_open("/removeVac",O_CREAT,0666,0);
 
+    sem_t* m3;
+    m3 = sem_open("/m3",O_CREAT,0666,0);
     //fifos for transfer pid of citizen and vaccinator between each other
     if(mkfifo("fifo1",FIFO_PERM) == -1){
     	if(errno != EEXIST){
@@ -228,42 +230,32 @@ int main(int argc, char* argv[]){
     		while(j<9){
 
 	    		sem_wait(atomic_wait);
-
-			    
+			    sem_post(civ); // take a civ
 
 	    		//critical section
 	    		//update shared memory
 				sem_wait(mshare);
 
-			
-				sem_wait(removeVac);
 				remove_1and2(addr);
-				
-				
-				
-				
-				
-				
-		    	//read_civ_pid[readed_char_num] = '\0';
-		    	
-		    	sem_post(civ); // take a civ
-		    	
-		    	
-		    	int fifoFd;
-				while(((fifoFd = open("fifo1",O_RDONLY)) == -1) && (errno == EINTR));
+				sem_wait(removeVac);
+
+				int fifoFd;
+    			while(((fifoFd = open("fifo1",O_RDONLY)) == -1) && (errno == EINTR));
 		    	if(fifoFd == -1){
 		    		perror("open fifo error");
-		    		exit(1);
+		    		return 1;
 		    	}
-		    	char read_civ_pid[10];
-		    	int readed_char_num = read(fifoFd,read_civ_pid,sizeof(read_civ_pid));
-		    	close(fifoFd);
-		    	
+				char readFifo[20];
+		    	readFifo[0] = '\0';
+		    	char car;
+		    	do{
+		    		read(fifoFd,&car,1);
+		    		strncat(readFifo,&car,1);
+		    	}while(car != '-');
 
-		    	printf("Vaccinator %d (pid=%ld) is inviting citizen pid=%s\n",i,(long) getpid(),read_civ_pid);
+		    	printf("Vaccinator %d (pid=%ld) is inviting citizen pid=%s\n",i,(long) getpid(),readFifo);
 
-		    	sem_post(m1);
-		    	sem_wait(m2);
+				
 			    sem_post(mshare);
 
 
@@ -291,24 +283,18 @@ int main(int argc, char* argv[]){
     		char char_id[20];
     		for(int j=0; j<t; j++){
     			sem_wait(civ);
-
-    			snprintf(char_id,10,"%d",cit_pid);
+    			snprintf(char_id,10,"%d-",cit_pid);
     			
     			int fifoFd;
     			while(((fifoFd = open("fifo1",O_WRONLY)) == -1) && (errno == EINTR));
 		    	if(fifoFd == -1){
 		    		perror("open fifo error");
-		    		exit(1);
+		    		return 1;
 		    	}
-		    	write(fifoFd,char_id,sizeof(char_id));
-		    	close(fifoFd);
-		    	
+	    		write(fifoFd,char_id,strlen(char_id));
 
-				sem_wait(m1);
-				printf("%s\n",char_id );
     			printf("Citizen %d (pid=%ld) is vaccinated for the %dth time: the clinic has %d vaccine1 and %d vaccine2\n",
     				i,(long)getpid(),j,number_of_vaccine_1(addr),number_of_vaccine_2(addr));
-    			sem_post(m2);
     			
     		}
     		//printf("citizen %ld\n", (long)getpid());
@@ -349,6 +335,9 @@ int main(int argc, char* argv[]){
 
     sem_close(atomic_wait);
     sem_unlink("/atomic_wait");
+
+    sem_close(m3);
+    sem_unlink("/m3");
 
     shm_unlink("/vaccineBuf");
 	return 0;
