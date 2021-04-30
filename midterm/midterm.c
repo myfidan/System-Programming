@@ -18,6 +18,7 @@
 #include <semaphore.h>
 #include <sys/mman.h>
 
+#define FIFO_PERM (S_IRUSR | S_IWUSR)
 
 sig_atomic_t flag = 0;
 
@@ -29,6 +30,8 @@ void handler(int signal_number){
 void insert_buffer(char* addr,char chr);
 void remove_1and2(char* addr);
 char remove_buffer(char* addr);
+int number_of_vaccine_1(char* addr);
+int number_of_vaccine_2(char* addr);
 
 int main(int argc, char* argv[]){
 
@@ -128,6 +131,14 @@ int main(int argc, char* argv[]){
     // semaphore I use for syncronization between vaccinator and vaccines
     sem_t* removeVac;
     removeVac = sem_open("/removeVac",O_CREAT,0666,0);
+
+    //fifos for transfer pid of citizen and vaccinator between each other
+    if(mkfifo("fifo1",FIFO_PERM) == -1){
+    	if(errno != EEXIST){
+    		perror("fifo error");
+    		return 1;
+    	}
+    }    
     //processes
     pid_t nurse[n];
     pid_t vaccinator[v];
@@ -135,11 +146,14 @@ int main(int argc, char* argv[]){
 
     //open file
     int fd;
-    while(((fd = open(inputfile,O_RDONLY)) == -1) && (errno == EINTR));
+    while(((fd = open(inputfile,O_RDWR)) == -1) && (errno == EINTR));
     if(fd == -1){
     	perror("open file error");
     	return 1;
     }
+
+    
+	
 
     //create Nurses
     for(int i=0; i<n; i++){
@@ -153,25 +167,41 @@ int main(int argc, char* argv[]){
     	if(nurse[i] == 0){ // Nurse code
     		int count = 1;
     		char chr;
-    		while((count = read(fd,&chr,sizeof(chr)))){
+    		//lock for file
+    		struct flock lock;
+			memset(&lock,0,sizeof(lock));
+    		while(1){
+    			//Exclusive lock file to read 1 char
+    			lock.l_type = F_WRLCK;
+				if(fcntl(fd,F_SETLKW,&lock) == -1){
+					perror("fcntl error");
+					exit(1);
+				}
+				count = read(fd,&chr,sizeof(chr));
+				//After reading 1 char open lock so other process can access file
+    			lock.l_type = F_UNLCK;
+				if(fcntl(fd,F_SETLK,&lock) == -1){
+					perror("fcntl error");
+					exit(1);
+				}
+				if(count == 0) break; //EOF 
+
     			if(chr != '\n'){
     				//accessing shared memory lock
     				sem_wait(empty);
     				sem_wait(mshare);
 					insert_buffer(addr,chr);
 
-					if(chr == '1') sem_post(m1);
-					if(chr == '2') sem_post(m2);
 					int valuem1,valuem2;
-					sem_getvalue(m1,&valuem1);
-					sem_getvalue(m2,&valuem2);	
+					valuem1 = number_of_vaccine_1(addr);
+					valuem2 = number_of_vaccine_2(addr);	
 				    printf("Nurse %d (pid=%ld) has brought vaccine %c: the clinic has %d vaccine1 and %d vaccine2.\n",
 				    	i+1,(long)getpid(),chr,valuem1,valuem2);
-				    if(valuem1 > 0 && valuem2 > 0){
-				    	sem_wait(m1);
-				    	sem_wait(m2);
+				    int x;
+				    sem_getvalue(removeVac,&x);
+				    if(valuem1-x > 0 && valuem2-x > 0){
 				    	sem_post(atomic_wait);
-				    	sem_wait(removeVac);
+				    	sem_post(removeVac);
 				    }
 				    sem_post(mshare);
 				    //sem_post(full);
@@ -194,20 +224,53 @@ int main(int argc, char* argv[]){
     	}
 
     	if(vaccinator[i] == 0){ // vaccinator code
-    		int i = 0;
-    		while(i<9){
+    		int j = 0;
+    		while(j<9){
 
 	    		sem_wait(atomic_wait);
-				
-				printf("%ld remove 2 vaccine\n",(long) getpid());
-				remove_1and2(addr);
-				sem_post(civ);
 
-				sem_post(empty);
-				sem_post(empty);
-				sem_post(removeVac);
 			    
-    			i++;
+
+	    		//critical section
+	    		//update shared memory
+				sem_wait(mshare);
+
+			
+				sem_wait(removeVac);
+				remove_1and2(addr);
+				
+				
+				
+				
+				
+				
+		    	//read_civ_pid[readed_char_num] = '\0';
+		    	
+		    	sem_post(civ); // take a civ
+		    	
+		    	
+		    	int fifoFd;
+				while(((fifoFd = open("fifo1",O_RDONLY)) == -1) && (errno == EINTR));
+		    	if(fifoFd == -1){
+		    		perror("open fifo error");
+		    		exit(1);
+		    	}
+		    	char read_civ_pid[10];
+		    	int readed_char_num = read(fifoFd,read_civ_pid,sizeof(read_civ_pid));
+		    	close(fifoFd);
+		    	
+
+		    	printf("Vaccinator %d (pid=%ld) is inviting citizen pid=%s\n",i,(long) getpid(),read_civ_pid);
+
+		    	sem_post(m1);
+		    	sem_wait(m2);
+			    sem_post(mshare);
+
+
+			    sem_post(empty);
+				sem_post(empty);
+    			
+    			j++;
     		}
 
     		_exit(EXIT_SUCCESS);
@@ -224,10 +287,29 @@ int main(int argc, char* argv[]){
     	}
 
     	if(citizen[i] == 0){ // citizen code
-
+    		int cit_pid = (int) getpid();
+    		char char_id[20];
     		for(int j=0; j<t; j++){
     			sem_wait(civ);
-    			printf("Citizen %d (pid=%ld) is vaccinated for the %dth time\n",i,(long)getpid(),j);
+
+    			snprintf(char_id,10,"%d",cit_pid);
+    			
+    			int fifoFd;
+    			while(((fifoFd = open("fifo1",O_WRONLY)) == -1) && (errno == EINTR));
+		    	if(fifoFd == -1){
+		    		perror("open fifo error");
+		    		exit(1);
+		    	}
+		    	write(fifoFd,char_id,sizeof(char_id));
+		    	close(fifoFd);
+		    	
+
+				sem_wait(m1);
+				printf("%s\n",char_id );
+    			printf("Citizen %d (pid=%ld) is vaccinated for the %dth time: the clinic has %d vaccine1 and %d vaccine2\n",
+    				i,(long)getpid(),j,number_of_vaccine_1(addr),number_of_vaccine_2(addr));
+    			sem_post(m2);
+    			
     		}
     		//printf("citizen %ld\n", (long)getpid());
     		_exit(EXIT_SUCCESS);
@@ -312,4 +394,22 @@ void remove_1and2(char* addr){
 
 		if(m1_check == 1 && m2_check == 1) break;
 	}
+}
+
+int number_of_vaccine_1(char* addr){
+	int count = 0;
+	for(int i=0; i<strlen(addr); i++){
+		if(addr[i] == '1') count++;
+	}
+
+	return count;
+}
+
+int number_of_vaccine_2(char* addr){
+	int count = 0;
+	for(int i=0; i<strlen(addr); i++){
+		if(addr[i] == '2') count++;
+	}
+
+	return count;
 }
