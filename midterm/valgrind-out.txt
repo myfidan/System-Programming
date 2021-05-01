@@ -1,0 +1,789 @@
+==9557== Memcheck, a memory error detector
+==9557== Copyright (C) 2002-2013, and GNU GPL'd, by Julian Seward et al.
+==9557== Using Valgrind-3.10.1 and LibVEX; rerun with -h for copyright info
+==9557== Command: ./program -n 10 -v 4 -c 6 -b 40 -t 6 -i inputFile
+==9557== Parent PID: 26904
+==9557== 
+--9557-- 
+--9557-- Valgrind options:
+--9557--    --leak-check=full
+--9557--    --show-leak-kinds=all
+--9557--    --track-origins=yes
+--9557--    --verbose
+--9557--    --log-file=valgrind-out.txt
+--9557-- Contents of /proc/version:
+--9557--   Linux version 4.4.0-64-generic (buildd@lcy01-20) (gcc version 4.8.4 (Ubuntu 4.8.4-2ubuntu1~14.04.3) ) #85~14.04.1-Ubuntu SMP Mon Feb 20 12:11:38 UTC 2017
+--9557-- Arch and hwcaps: X86, LittleEndian, x86-mmxext-sse1-sse2-lzcnt
+--9557-- Page sizes: currently 4096, max supported 4096
+--9557-- Valgrind library directory: /usr/lib/valgrind
+--9557-- Reading syms from /lib/i386-linux-gnu/ld-2.19.so
+--9557--   Considering /lib/i386-linux-gnu/ld-2.19.so ..
+--9557--   .. CRC mismatch (computed 1b1c4cf5 wanted 02b590da)
+--9557--   Considering /usr/lib/debug/lib/i386-linux-gnu/ld-2.19.so ..
+--9557--   .. CRC is valid
+--9557-- Reading syms from /home/cse312/Desktop/system/System-Programming/midterm/program
+--9557-- Reading syms from /usr/lib/valgrind/memcheck-x86-linux
+--9557--   Considering /usr/lib/valgrind/memcheck-x86-linux ..
+--9557--   .. CRC mismatch (computed 9b80a843 wanted b9b8f553)
+--9557--    object doesn't have a symbol table
+--9557--    object doesn't have a dynamic symbol table
+--9557-- Scheduler: using generic scheduler lock implementation.
+--9557-- Reading suppressions file: /usr/lib/valgrind/default.supp
+==9557== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9557-by-cse312-on-???
+==9557== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9557-by-cse312-on-???
+==9557== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9557-by-cse312-on-???
+==9557== 
+==9557== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9557== don't want to do, unless you know exactly what you're doing,
+==9557== or are doing some strange experiment):
+==9557==   /usr/lib/valgrind/../../bin/vgdb --pid=9557 ...command...
+==9557== 
+==9557== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9557==   /path/to/gdb ./program
+==9557== and then give GDB the following command
+==9557==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9557
+==9557== --pid is optional if only one valgrind process is running
+==9557== 
+--9557-- REDIR: 0x4017e90 (ld-linux.so.2:strlen) redirected to 0x380755e2 (???)
+--9557-- REDIR: 0x4017ca0 (ld-linux.so.2:index) redirected to 0x380755bd (???)
+--9557-- Reading syms from /usr/lib/valgrind/vgpreload_core-x86-linux.so
+--9557--   Considering /usr/lib/valgrind/vgpreload_core-x86-linux.so ..
+--9557--   .. CRC mismatch (computed db3a9a41 wanted f4b91af9)
+--9557--    object doesn't have a symbol table
+--9557-- Reading syms from /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so
+--9557--   Considering /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so ..
+--9557--   .. CRC mismatch (computed fa818b99 wanted 420ff42b)
+--9557--    object doesn't have a symbol table
+==9557== WARNING: new redirection conflicts with existing -- ignoring it
+--9557--     old: 0x04017e90 (strlen              ) R-> (0000.0) 0x380755e2 ???
+--9557--     new: 0x04017e90 (strlen              ) R-> (2007.0) 0x0402d480 strlen
+--9557-- Reading syms from /lib/i386-linux-gnu/librt-2.19.so
+--9557--   Considering /lib/i386-linux-gnu/librt-2.19.so ..
+--9557--   .. CRC mismatch (computed 50c21f70 wanted f2f80b8b)
+--9557--   Considering /usr/lib/debug/lib/i386-linux-gnu/librt-2.19.so ..
+--9557--   .. CRC is valid
+--9557-- Reading syms from /lib/i386-linux-gnu/libpthread-2.19.so
+--9557--   Considering /lib/i386-linux-gnu/libpthread-2.19.so ..
+--9557--   .. CRC mismatch (computed 2b96a78f wanted 0b29f31f)
+--9557--   Considering /usr/lib/debug/lib/i386-linux-gnu/libpthread-2.19.so ..
+--9557--   .. CRC is valid
+--9557-- Reading syms from /lib/i386-linux-gnu/libc-2.19.so
+--9557--   Considering /lib/i386-linux-gnu/libc-2.19.so ..
+--9557--   .. CRC mismatch (computed 1039bceb wanted 920e1817)
+--9557--   Considering /usr/lib/debug/lib/i386-linux-gnu/libc-2.19.so ..
+--9557--   .. CRC is valid
+--9557-- REDIR: 0x40ebf40 (libc.so.6:strnlen) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x40edef0 (libc.so.6:strncasecmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x40f3870 (libc.so.6:memrchr) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x41068b0 (libc.so.6:wcslen) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x40eccc0 (libc.so.6:strstr) redirected to 0x4031460 (strstr)
+--9557-- REDIR: 0x40ec0f0 (libc.so.6:__GI_strrchr) redirected to 0x402ce50 (__GI_strrchr)
+--9557-- REDIR: 0x40ed9c0 (libc.so.6:memset) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x419d210 (libc.so.6:__memset_sse2) redirected to 0x4030820 (memset)
+--9557-- REDIR: 0x40ebe80 (libc.so.6:__GI_strlen) redirected to 0x402d400 (__GI_strlen)
+--9557-- REDIR: 0x40eb520 (libc.so.6:__GI_strchr) redirected to 0x402cf80 (__GI_strchr)
+--9557-- REDIR: 0x40ebe30 (libc.so.6:strlen) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x40f3fd0 (libc.so.6:__strlen_sse2_bsf) redirected to 0x402d3e0 (strlen)
+--9557-- REDIR: 0x40eb4d0 (libc.so.6:index) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x41050c0 (libc.so.6:__strchr_sse2_bsf) redirected to 0x402d040 (index)
+--9557-- REDIR: 0x40eda70 (libc.so.6:mempcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x41a0320 (libc.so.6:__mempcpy_ssse3) redirected to 0x4030fa0 (mempcpy)
+--9557-- REDIR: 0x40ee050 (libc.so.6:memcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x419e320 (libc.so.6:__memcpy_ssse3) redirected to 0x402eda0 (memcpy)
+--9557-- REDIR: 0x40efe30 (libc.so.6:strchrnul) redirected to 0x4030e50 (strchrnul)
+--9557-- REDIR: 0x40eb2c0 (libc.so.6:strcat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x40ff750 (libc.so.6:__strcat_ssse3) redirected to 0x402d080 (strcat)
+--9557-- REDIR: 0x40ed620 (libc.so.6:__GI_memcmp) redirected to 0x402ff90 (__GI_memcmp)
+--9557-- REDIR: 0x40e7830 (libc.so.6:malloc) redirected to 0x402a110 (malloc)
+==9558== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9558-by-cse312-on-???
+==9558== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9558-by-cse312-on-???
+==9558== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9558-by-cse312-on-???
+==9558== 
+==9558== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9558== don't want to do, unless you know exactly what you're doing,
+==9558== or are doing some strange experiment):
+==9558==   /usr/lib/valgrind/../../bin/vgdb --pid=9558 ...command...
+==9558== 
+==9558== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9558==   /path/to/gdb ./program
+==9558== and then give GDB the following command
+==9558==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9558
+==9558== --pid is optional if only one valgrind process is running
+==9558== 
+==9559== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9559-by-cse312-on-???
+==9559== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9559-by-cse312-on-???
+==9559== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9559-by-cse312-on-???
+==9559== 
+==9559== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9559== don't want to do, unless you know exactly what you're doing,
+==9559== or are doing some strange experiment):
+==9559==   /usr/lib/valgrind/../../bin/vgdb --pid=9559 ...command...
+==9559== 
+==9559== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9559==   /path/to/gdb ./program
+==9559== and then give GDB the following command
+==9559==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9559
+==9559== --pid is optional if only one valgrind process is running
+==9559== 
+==9562== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9562-by-cse312-on-???
+==9562== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9562-by-cse312-on-???
+==9562== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9562-by-cse312-on-???
+==9562== 
+==9562== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9562== don't want to do, unless you know exactly what you're doing,
+==9562== or are doing some strange experiment):
+==9562==   /usr/lib/valgrind/../../bin/vgdb --pid=9562 ...command...
+==9562== 
+==9562== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9562==   /path/to/gdb ./program
+==9562== and then give GDB the following command
+==9562==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9562
+==9562== --pid is optional if only one valgrind process is running
+==9562== 
+==9564== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9564-by-cse312-on-???
+==9564== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9564-by-cse312-on-???
+==9564== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9564-by-cse312-on-???
+==9564== 
+==9564== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9564== don't want to do, unless you know exactly what you're doing,
+==9564== or are doing some strange experiment):
+==9564==   /usr/lib/valgrind/../../bin/vgdb --pid=9564 ...command...
+==9564== 
+==9564== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9564==   /path/to/gdb ./program
+==9564== and then give GDB the following command
+==9564==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9564
+==9564== --pid is optional if only one valgrind process is running
+==9564== 
+==9566== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9566-by-cse312-on-???
+==9566== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9566-by-cse312-on-???
+==9566== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9566-by-cse312-on-???
+==9566== 
+==9566== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9566== don't want to do, unless you know exactly what you're doing,
+==9566== or are doing some strange experiment):
+==9566==   /usr/lib/valgrind/../../bin/vgdb --pid=9566 ...command...
+==9566== 
+==9566== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9566==   /path/to/gdb ./program
+==9566== and then give GDB the following command
+==9566==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9566
+==9566== --pid is optional if only one valgrind process is running
+==9566== 
+==9563== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9563-by-cse312-on-???
+==9563== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9563-by-cse312-on-???
+==9563== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9563-by-cse312-on-???
+==9563== 
+==9563== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9563== don't want to do, unless you know exactly what you're doing,
+==9563== or are doing some strange experiment):
+==9563==   /usr/lib/valgrind/../../bin/vgdb --pid=9563 ...command...
+==9563== 
+==9563== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9563==   /path/to/gdb ./program
+==9563== and then give GDB the following command
+==9563==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9563
+==9563== --pid is optional if only one valgrind process is running
+==9563== 
+==9561== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9561-by-cse312-on-???
+==9561== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9561-by-cse312-on-???
+==9561== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9561-by-cse312-on-???
+==9561== 
+==9561== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9561== don't want to do, unless you know exactly what you're doing,
+==9561== or are doing some strange experiment):
+==9561==   /usr/lib/valgrind/../../bin/vgdb --pid=9561 ...command...
+==9561== 
+==9561== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9561==   /path/to/gdb ./program
+==9561== and then give GDB the following command
+==9561==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9561
+==9561== --pid is optional if only one valgrind process is running
+==9561== 
+==9567== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9567-by-cse312-on-???
+==9567== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9567-by-cse312-on-???
+==9567== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9567-by-cse312-on-???
+==9567== 
+==9567== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9567== don't want to do, unless you know exactly what you're doing,
+==9567== or are doing some strange experiment):
+==9567==   /usr/lib/valgrind/../../bin/vgdb --pid=9567 ...command...
+==9567== 
+==9567== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9567==   /path/to/gdb ./program
+==9567== and then give GDB the following command
+==9567==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9567
+==9567== --pid is optional if only one valgrind process is running
+==9567== 
+==9565== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9565-by-cse312-on-???
+==9565== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9565-by-cse312-on-???
+==9565== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9565-by-cse312-on-???
+==9565== 
+==9565== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9565== don't want to do, unless you know exactly what you're doing,
+==9565== or are doing some strange experiment):
+==9565==   /usr/lib/valgrind/../../bin/vgdb --pid=9565 ...command...
+==9565== 
+==9565== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9565==   /path/to/gdb ./program
+==9565== and then give GDB the following command
+==9565==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9565
+==9565== --pid is optional if only one valgrind process is running
+==9565== 
+==9560== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9560-by-cse312-on-???
+==9560== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9560-by-cse312-on-???
+==9560== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9560-by-cse312-on-???
+==9560== 
+==9560== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9560== don't want to do, unless you know exactly what you're doing,
+==9560== or are doing some strange experiment):
+==9560==   /usr/lib/valgrind/../../bin/vgdb --pid=9560 ...command...
+==9560== 
+==9560== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9560==   /path/to/gdb ./program
+==9560== and then give GDB the following command
+==9560==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9560
+==9560== --pid is optional if only one valgrind process is running
+==9560== 
+==9573== Syscall param write(buf) points to uninitialised byte(s)
+==9573==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9573==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9573==  Address 0xbea5bf9e is on thread 1's stack
+==9573==  in frame #1, created by main (???)
+==9573==  Uninitialised value was created by a stack allocation
+==9573==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9573== 
+==9568== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9568-by-cse312-on-???
+==9568== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9568-by-cse312-on-???
+==9568== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9568-by-cse312-on-???
+==9568== 
+==9568== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9568== don't want to do, unless you know exactly what you're doing,
+==9568== or are doing some strange experiment):
+==9568==   /usr/lib/valgrind/../../bin/vgdb --pid=9568 ...command...
+==9568== 
+==9568== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9568==   /path/to/gdb ./program
+==9568== and then give GDB the following command
+==9568==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9568
+==9568== --pid is optional if only one valgrind process is running
+==9568== 
+--9568-- REDIR: 0x40ebf80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9568-- REDIR: 0x4101a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+==9573== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9573-by-cse312-on-???
+==9573== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9573-by-cse312-on-???
+==9573== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9573-by-cse312-on-???
+==9573== 
+==9573== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9573== don't want to do, unless you know exactly what you're doing,
+==9573== or are doing some strange experiment):
+==9573==   /usr/lib/valgrind/../../bin/vgdb --pid=9573 ...command...
+==9573== 
+==9573== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9573==   /path/to/gdb ./program
+==9573== and then give GDB the following command
+==9573==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9573
+==9573== --pid is optional if only one valgrind process is running
+==9573== 
+==9575== Syscall param write(buf) points to uninitialised byte(s)
+==9575==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9575==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9575==  Address 0xbea5bf9e is on thread 1's stack
+==9575==  in frame #1, created by main (???)
+==9575==  Uninitialised value was created by a stack allocation
+==9575==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9575== 
+==9575== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9575-by-cse312-on-???
+==9575== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9575-by-cse312-on-???
+==9575== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9575-by-cse312-on-???
+==9575== 
+==9575== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9575== don't want to do, unless you know exactly what you're doing,
+==9575== or are doing some strange experiment):
+==9575==   /usr/lib/valgrind/../../bin/vgdb --pid=9575 ...command...
+==9575== 
+==9575== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9575==   /path/to/gdb ./program
+==9575== and then give GDB the following command
+==9575==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9575
+==9575== --pid is optional if only one valgrind process is running
+==9575== 
+==9576== Syscall param write(buf) points to uninitialised byte(s)
+==9576==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9576==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9576==  Address 0xbea5bf9e is on thread 1's stack
+==9576==  in frame #1, created by main (???)
+==9576==  Uninitialised value was created by a stack allocation
+==9576==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9576== 
+==9576== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9576-by-cse312-on-???
+==9576== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9576-by-cse312-on-???
+==9576== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9576-by-cse312-on-???
+==9576== 
+==9576== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9576== don't want to do, unless you know exactly what you're doing,
+==9576== or are doing some strange experiment):
+==9576==   /usr/lib/valgrind/../../bin/vgdb --pid=9576 ...command...
+==9576== 
+==9576== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9576==   /path/to/gdb ./program
+==9576== and then give GDB the following command
+==9576==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9576
+==9576== --pid is optional if only one valgrind process is running
+==9576== 
+==9574== Syscall param write(buf) points to uninitialised byte(s)
+==9574==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9574==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9574==  Address 0xbea5bf9e is on thread 1's stack
+==9574==  in frame #1, created by main (???)
+==9574==  Uninitialised value was created by a stack allocation
+==9574==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9574== 
+==9574== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9574-by-cse312-on-???
+==9574== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9574-by-cse312-on-???
+==9574== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9574-by-cse312-on-???
+==9574== 
+==9574== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9574== don't want to do, unless you know exactly what you're doing,
+==9574== or are doing some strange experiment):
+==9574==   /usr/lib/valgrind/../../bin/vgdb --pid=9574 ...command...
+==9574== 
+==9574== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9574==   /path/to/gdb ./program
+==9574== and then give GDB the following command
+==9574==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9574
+==9574== --pid is optional if only one valgrind process is running
+==9574== 
+==9572== Syscall param write(buf) points to uninitialised byte(s)
+==9572==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9572==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9572==  Address 0xbea5bf9e is on thread 1's stack
+==9572==  in frame #1, created by main (???)
+==9572==  Uninitialised value was created by a stack allocation
+==9572==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9572== 
+==9572== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9572-by-cse312-on-???
+==9572== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9572-by-cse312-on-???
+==9572== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9572-by-cse312-on-???
+==9572== 
+==9572== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9572== don't want to do, unless you know exactly what you're doing,
+==9572== or are doing some strange experiment):
+==9572==   /usr/lib/valgrind/../../bin/vgdb --pid=9572 ...command...
+==9572== 
+==9572== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9572==   /path/to/gdb ./program
+==9572== and then give GDB the following command
+==9572==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9572
+==9572== --pid is optional if only one valgrind process is running
+==9572== 
+==9577== Syscall param write(buf) points to uninitialised byte(s)
+==9577==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9577==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9577==  Address 0xbea5bf9e is on thread 1's stack
+==9577==  in frame #1, created by main (???)
+==9577==  Uninitialised value was created by a stack allocation
+==9577==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9577== 
+==9577== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9577-by-cse312-on-???
+==9577== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9577-by-cse312-on-???
+==9577== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9577-by-cse312-on-???
+==9577== 
+==9577== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9577== don't want to do, unless you know exactly what you're doing,
+==9577== or are doing some strange experiment):
+==9577==   /usr/lib/valgrind/../../bin/vgdb --pid=9577 ...command...
+==9577== 
+==9577== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9577==   /path/to/gdb ./program
+==9577== and then give GDB the following command
+==9577==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9577
+==9577== --pid is optional if only one valgrind process is running
+==9577== 
+==9569== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9569-by-cse312-on-???
+==9569== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9569-by-cse312-on-???
+==9569== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9569-by-cse312-on-???
+==9569== 
+==9569== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9569== don't want to do, unless you know exactly what you're doing,
+==9569== or are doing some strange experiment):
+==9569==   /usr/lib/valgrind/../../bin/vgdb --pid=9569 ...command...
+==9569== 
+==9569== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9569==   /path/to/gdb ./program
+==9569== and then give GDB the following command
+==9569==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9569
+==9569== --pid is optional if only one valgrind process is running
+==9569== 
+--9569-- REDIR: 0x40ebf80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9569-- REDIR: 0x4101a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+==9570== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9570-by-cse312-on-???
+==9570== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9570-by-cse312-on-???
+==9570== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9570-by-cse312-on-???
+==9570== 
+==9570== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9570== don't want to do, unless you know exactly what you're doing,
+==9570== or are doing some strange experiment):
+==9570==   /usr/lib/valgrind/../../bin/vgdb --pid=9570 ...command...
+==9570== 
+==9570== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9570==   /path/to/gdb ./program
+==9570== and then give GDB the following command
+==9570==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9570
+==9570== --pid is optional if only one valgrind process is running
+==9570== 
+--9570-- REDIR: 0x40ebf80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9570-- REDIR: 0x4101a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+==9571== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-9571-by-cse312-on-???
+==9571== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-9571-by-cse312-on-???
+==9571== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-9571-by-cse312-on-???
+==9571== 
+==9571== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==9571== don't want to do, unless you know exactly what you're doing,
+==9571== or are doing some strange experiment):
+==9571==   /usr/lib/valgrind/../../bin/vgdb --pid=9571 ...command...
+==9571== 
+==9571== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==9571==   /path/to/gdb ./program
+==9571== and then give GDB the following command
+==9571==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=9571
+==9571== --pid is optional if only one valgrind process is running
+==9571== 
+--9571-- REDIR: 0x40ebf80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9571-- REDIR: 0x4101a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+--9567-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9567-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9562-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9573-- REDIR: 0x40ebf80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9573-- REDIR: 0x4101a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+--9558-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9558-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9560-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9560-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9564-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9564-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9564-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9566-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9566-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9559-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9559-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9563-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9563-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9562-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9560-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9558-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9565-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9565-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9561-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9561-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9561-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9566-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9562-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9559-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9563-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9567-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9573-- REDIR: 0x40eb7b0 (libc.so.6:strcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9573-- REDIR: 0x40f4190 (libc.so.6:__strcpy_ssse3) redirected to 0x402d4c0 (strcpy)
+--9575-- REDIR: 0x40ebf80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9575-- REDIR: 0x4101a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+--9565-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9575-- REDIR: 0x40eb7b0 (libc.so.6:strcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9575-- REDIR: 0x40f4190 (libc.so.6:__strcpy_ssse3) redirected to 0x402d4c0 (strcpy)
+--9573-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9573-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9576-- REDIR: 0x40ebf80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9576-- REDIR: 0x4101a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+--9573-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9576-- REDIR: 0x40eb7b0 (libc.so.6:strcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9576-- REDIR: 0x40f4190 (libc.so.6:__strcpy_ssse3) redirected to 0x402d4c0 (strcpy)
+--9575-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9575-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9574-- REDIR: 0x40ebf80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9574-- REDIR: 0x4101a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+--9575-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9574-- REDIR: 0x40eb7b0 (libc.so.6:strcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9574-- REDIR: 0x40f4190 (libc.so.6:__strcpy_ssse3) redirected to 0x402d4c0 (strcpy)
+--9572-- REDIR: 0x40ebf80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9572-- REDIR: 0x4101a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+--9576-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9576-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9576-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9572-- REDIR: 0x40eb7b0 (libc.so.6:strcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9572-- REDIR: 0x40f4190 (libc.so.6:__strcpy_ssse3) redirected to 0x402d4c0 (strcpy)
+--9574-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9574-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9574-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9577-- REDIR: 0x40ebf80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9577-- REDIR: 0x4101a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+--9577-- REDIR: 0x40eb7b0 (libc.so.6:strcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9577-- REDIR: 0x40f4190 (libc.so.6:__strcpy_ssse3) redirected to 0x402d4c0 (strcpy)
+--9572-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9572-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9572-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+==9564== 
+==9564== HEAP SUMMARY:
+==9564==     in use at exit: 0 bytes in 0 blocks
+==9564==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9564== 
+==9564== All heap blocks were freed -- no leaks are possible
+==9564== 
+==9564== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9564== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9560== 
+==9560== HEAP SUMMARY:
+==9560==     in use at exit: 0 bytes in 0 blocks
+==9560==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9560== 
+==9560== All heap blocks were freed -- no leaks are possible
+==9560== 
+==9560== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9560== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9563== 
+==9563== HEAP SUMMARY:
+==9563==     in use at exit: 0 bytes in 0 blocks
+==9563==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9563== 
+==9563== All heap blocks were freed -- no leaks are possible
+==9563== 
+==9563== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9563== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9562== 
+==9562== HEAP SUMMARY:
+==9562==     in use at exit: 0 bytes in 0 blocks
+==9562==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9562== 
+==9562== All heap blocks were freed -- no leaks are possible
+==9562== 
+==9562== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9562== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9566== 
+==9566== HEAP SUMMARY:
+==9566==     in use at exit: 0 bytes in 0 blocks
+==9566==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9566== 
+==9566== All heap blocks were freed -- no leaks are possible
+==9566== 
+==9566== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9566== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9567== 
+==9559== 
+==9567== HEAP SUMMARY:
+==9567==     in use at exit: 0 bytes in 0 blocks
+==9567==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9567== 
+==9567== All heap blocks were freed -- no leaks are possible
+==9567== 
+==9567== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9567== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9559== HEAP SUMMARY:
+==9559==     in use at exit: 0 bytes in 0 blocks
+==9559==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9559== 
+==9559== All heap blocks were freed -- no leaks are possible
+==9559== 
+==9559== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9559== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9558== 
+==9558== HEAP SUMMARY:
+==9558==     in use at exit: 0 bytes in 0 blocks
+==9558==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9558== 
+==9558== All heap blocks were freed -- no leaks are possible
+==9558== 
+==9558== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9558== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+--9571-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9571-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9569-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9569-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+==9561== 
+==9561== HEAP SUMMARY:
+==9561==     in use at exit: 0 bytes in 0 blocks
+==9561==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9561== 
+==9561== All heap blocks were freed -- no leaks are possible
+==9561== 
+==9561== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9561== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+--9570-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9570-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9570-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9568-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9568-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9569-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+--9571-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+==9565== 
+==9565== HEAP SUMMARY:
+==9565==     in use at exit: 0 bytes in 0 blocks
+==9565==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9565== 
+==9565== All heap blocks were freed -- no leaks are possible
+==9565== 
+==9565== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9565== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+--9577-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9577-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9568-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+==9573== 
+==9573== HEAP SUMMARY:
+==9573==     in use at exit: 0 bytes in 0 blocks
+==9573==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9573== 
+==9573== All heap blocks were freed -- no leaks are possible
+==9573== 
+==9573== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9573== 
+==9573== 6 errors in context 1 of 1:
+==9573== Syscall param write(buf) points to uninitialised byte(s)
+==9573==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9573==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9573==  Address 0xbea5bf9e is on thread 1's stack
+==9573==  in frame #1, created by main (???)
+==9573==  Uninitialised value was created by a stack allocation
+==9573==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9573== 
+==9573== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+--9577-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+==9575== 
+==9575== HEAP SUMMARY:
+==9575==     in use at exit: 0 bytes in 0 blocks
+==9575==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9575== 
+==9575== All heap blocks were freed -- no leaks are possible
+==9575== 
+==9575== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9575== 
+==9575== 6 errors in context 1 of 1:
+==9575== Syscall param write(buf) points to uninitialised byte(s)
+==9575==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9575==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9575==  Address 0xbea5bf9e is on thread 1's stack
+==9575==  in frame #1, created by main (???)
+==9575==  Uninitialised value was created by a stack allocation
+==9575==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9575== 
+==9575== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9576== 
+==9576== HEAP SUMMARY:
+==9576==     in use at exit: 0 bytes in 0 blocks
+==9576==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9576== 
+==9576== All heap blocks were freed -- no leaks are possible
+==9576== 
+==9576== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9576== 
+==9576== 6 errors in context 1 of 1:
+==9576== Syscall param write(buf) points to uninitialised byte(s)
+==9576==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9576==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9576==  Address 0xbea5bf9e is on thread 1's stack
+==9576==  in frame #1, created by main (???)
+==9576==  Uninitialised value was created by a stack allocation
+==9576==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9576== 
+==9576== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9574== 
+==9574== HEAP SUMMARY:
+==9574==     in use at exit: 0 bytes in 0 blocks
+==9574==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9574== 
+==9574== All heap blocks were freed -- no leaks are possible
+==9574== 
+==9574== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9574== 
+==9574== 6 errors in context 1 of 1:
+==9574== Syscall param write(buf) points to uninitialised byte(s)
+==9574==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9574==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9574==  Address 0xbea5bf9e is on thread 1's stack
+==9574==  in frame #1, created by main (???)
+==9574==  Uninitialised value was created by a stack allocation
+==9574==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9574== 
+==9574== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9572== 
+==9572== HEAP SUMMARY:
+==9572==     in use at exit: 0 bytes in 0 blocks
+==9572==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9572== 
+==9572== All heap blocks were freed -- no leaks are possible
+==9572== 
+==9572== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9572== 
+==9572== 6 errors in context 1 of 1:
+==9572== Syscall param write(buf) points to uninitialised byte(s)
+==9572==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9572==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9572==  Address 0xbea5bf9e is on thread 1's stack
+==9572==  in frame #1, created by main (???)
+==9572==  Uninitialised value was created by a stack allocation
+==9572==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9572== 
+==9572== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9577== 
+==9577== HEAP SUMMARY:
+==9577==     in use at exit: 0 bytes in 0 blocks
+==9577==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9577== 
+==9577== All heap blocks were freed -- no leaks are possible
+==9577== 
+==9577== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9577== 
+==9577== 6 errors in context 1 of 1:
+==9577== Syscall param write(buf) points to uninitialised byte(s)
+==9577==    at 0x4062D33: __write_nocancel (syscall-template.S:81)
+==9577==    by 0x8049A61: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9577==  Address 0xbea5bf9e is on thread 1's stack
+==9577==  in frame #1, created by main (???)
+==9577==  Uninitialised value was created by a stack allocation
+==9577==    at 0x8048C80: main (in /home/cse312/Desktop/system/System-Programming/midterm/program)
+==9577== 
+==9577== ERROR SUMMARY: 6 errors from 1 contexts (suppressed: 0 from 0)
+==9571== 
+==9571== HEAP SUMMARY:
+==9571==     in use at exit: 0 bytes in 0 blocks
+==9571==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9571== 
+==9571== All heap blocks were freed -- no leaks are possible
+==9571== 
+==9571== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9571== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9569== 
+==9569== HEAP SUMMARY:
+==9569==     in use at exit: 0 bytes in 0 blocks
+==9569==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9569== 
+==9569== All heap blocks were freed -- no leaks are possible
+==9569== 
+==9569== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9569== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9570== 
+==9570== HEAP SUMMARY:
+==9570==     in use at exit: 0 bytes in 0 blocks
+==9570==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9570== 
+==9570== All heap blocks were freed -- no leaks are possible
+==9570== 
+==9570== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9570== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9568== 
+==9568== HEAP SUMMARY:
+==9568==     in use at exit: 0 bytes in 0 blocks
+==9568==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9568== 
+==9568== All heap blocks were freed -- no leaks are possible
+==9568== 
+==9568== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9568== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+--9557-- REDIR: 0x40eb6e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--9557-- REDIR: 0x41aa900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--9557-- REDIR: 0x40e7de0 (libc.so.6:free) redirected to 0x402b370 (free)
+==9557== 
+==9557== HEAP SUMMARY:
+==9557==     in use at exit: 0 bytes in 0 blocks
+==9557==   total heap usage: 14 allocs, 14 frees, 297 bytes allocated
+==9557== 
+==9557== All heap blocks were freed -- no leaks are possible
+==9557== 
+==9557== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==9557== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

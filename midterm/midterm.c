@@ -32,6 +32,12 @@ void remove_1and2(char* addr);
 char remove_buffer(char* addr);
 int number_of_vaccine_1(char* addr);
 int number_of_vaccine_2(char* addr);
+int remaining_citizen(char* helperAddr);
+void decr_remaining_citizen(char* helperAddr);
+void incr_vaccine_count(int vaccinator_num,char* helperAddr);
+int take_number_of_vaccinator(char* third_shr);
+void incr_number_of_vaccinator(char* third_shr);
+void print_vaccinator_info(char* helperAddr,pid_t* vaccinator,int v);
 
 int main(int argc, char* argv[]){
 
@@ -108,12 +114,43 @@ int main(int argc, char* argv[]){
     for(int i=0; i<b; i++){
     	addr[i] = '-';
     }
+
+    //Second shared memory for holding
+    //information about how many vaccinator invite
+    //How many citizen and remaining citizen count.
+    int helper_shm = shm_open("/helper_shm", O_CREAT | O_RDWR,0666);
+    if(helper_shm < 0){
+    	perror("shm_open error");
+    	return 1;
+    }
+    ftruncate(helper_shm,4096);//create b size buffer
+    char* helperAddr = mmap(NULL,4096, PROT_READ | PROT_WRITE, MAP_SHARED, helper_shm,0); 
+    helperAddr[0] = '\0';
+    char temp[10];
+    snprintf(temp,10,"%d-",c);
+    strcat(helperAddr,temp);
+
+    for(int i=1; i<=v; i++){
+    	char temp[10];
+    	snprintf(temp,10,"v%d_0-",i);
+   		strcat(helperAddr,temp);
+    }
+
+    //third shared memory for counting vaccinators
+    int third_shr = shm_open("/third_shr", O_CREAT | O_RDWR,0666);
+    if(third_shr < 0){
+    	perror("shm_open error");
+    	return 1;
+    }
+    ftruncate(third_shr,10);//create b size buffer
+    char* third_addr = mmap(NULL,10, PROT_READ | PROT_WRITE, MAP_SHARED, third_shr,0); 
+    third_addr[0] = '\0';
+    strcat(third_addr,"0");
     //binary semo for access shared memory
     sem_t* mshare;
     mshare = sem_open("/mshare",O_CREAT,0666,1);
-    //Check how many elements in buffer
-    sem_t* full;
-    full = sem_open("/full",O_CREAT,0666,0);
+   
+
     //Check buffer Empty or not
     sem_t* empty;
     empty = sem_open("/empty",O_CREAT,0666,b);
@@ -132,8 +169,6 @@ int main(int argc, char* argv[]){
     sem_t* removeVac;
     removeVac = sem_open("/removeVac",O_CREAT,0666,0);
 
-    sem_t* m3;
-    m3 = sem_open("/m3",O_CREAT,0666,0);
     //fifos for transfer pid of citizen and vaccinator between each other
     if(mkfifo("fifo1",FIFO_PERM) == -1){
     	if(errno != EEXIST){
@@ -155,7 +190,7 @@ int main(int argc, char* argv[]){
     }
 
     
-	
+	printf("Welcome to the CSE344 clinic. Number of citizens to vaccinate c=%d with t=%d doses.\n",c,t);
 
     //create Nurses
     for(int i=0; i<n; i++){
@@ -206,12 +241,19 @@ int main(int argc, char* argv[]){
 				    	sem_post(removeVac);
 				    }
 				    sem_post(mshare);
-				    //sem_post(full);
     			}
 			}
 
 
-    		
+    		//close semaphores
+		   	sem_close(mshare);
+		    sem_close(empty);
+		    sem_close(m1);
+			sem_close(m2);
+		    sem_close(civ);
+		    sem_close(removeVac);
+		    sem_close(atomic_wait);
+
     		_exit(EXIT_SUCCESS);
     	}
     }
@@ -226,43 +268,71 @@ int main(int argc, char* argv[]){
     	}
 
     	if(vaccinator[i] == 0){ // vaccinator code
-    		int j = 0;
-    		while(j<9){
+    		
+    		while(1){
+
+    			sem_wait(mshare);
+    			int number_of_vac = take_number_of_vaccinator(third_addr);
+    			if( number_of_vac != t*c) incr_number_of_vaccinator(third_addr);
+    			sem_post(mshare);
+
+    			if( number_of_vac == t*c){
+    				//close semaphores
+				   	sem_close(mshare);
+				    sem_close(empty);
+				    sem_close(m1);
+					sem_close(m2);
+				    sem_close(civ);
+				    sem_close(removeVac);
+				    sem_close(atomic_wait);
+
+    				exit(0);
+    			}
 
 	    		sem_wait(atomic_wait);
-			    sem_post(civ); // take a civ
+
+			    
 
 	    		//critical section
 	    		//update shared memory
 				sem_wait(mshare);
 
-				remove_1and2(addr);
+			
 				sem_wait(removeVac);
-
-				int fifoFd;
-    			while(((fifoFd = open("fifo1",O_RDONLY)) == -1) && (errno == EINTR));
+				remove_1and2(addr);
+				
+				
+				
+				
+				
+				
+		    	//read_civ_pid[readed_char_num] = '\0';
+		    	
+		    	sem_post(civ); // take a civ
+		    	
+		    	
+		    	int fifoFd;
+				while(((fifoFd = open("fifo1",O_RDONLY)) == -1) && (errno == EINTR));
 		    	if(fifoFd == -1){
 		    		perror("open fifo error");
-		    		return 1;
+		    		exit(1);
 		    	}
-				char readFifo[20];
-		    	readFifo[0] = '\0';
-		    	char car;
-		    	do{
-		    		read(fifoFd,&car,1);
-		    		strncat(readFifo,&car,1);
-		    	}while(car != '-');
+		    	char read_civ_pid[10];
+		    	read(fifoFd,read_civ_pid,sizeof(read_civ_pid));
+		    	close(fifoFd);
+		    	
 
-		    	printf("Vaccinator %d (pid=%ld) is inviting citizen pid=%s\n",i,(long) getpid(),readFifo);
+		    	printf("Vaccinator %d (pid=%ld) is inviting citizen pid=%s\n",i+1,(long) getpid(),read_civ_pid);
+		    	incr_vaccine_count(i+1,helperAddr);
 
-				
+		    	sem_post(m1);
+		    	sem_wait(m2);
 			    sem_post(mshare);
 
 
 			    sem_post(empty);
 				sem_post(empty);
     			
-    			j++;
     		}
 
     		_exit(EXIT_SUCCESS);
@@ -283,40 +353,64 @@ int main(int argc, char* argv[]){
     		char char_id[20];
     		for(int j=0; j<t; j++){
     			sem_wait(civ);
-    			snprintf(char_id,10,"%d-",cit_pid);
+
+    			snprintf(char_id,10,"%d",cit_pid);
     			
     			int fifoFd;
     			while(((fifoFd = open("fifo1",O_WRONLY)) == -1) && (errno == EINTR));
 		    	if(fifoFd == -1){
 		    		perror("open fifo error");
-		    		return 1;
+		    		exit(1);
 		    	}
-	    		write(fifoFd,char_id,strlen(char_id));
+		    	write(fifoFd,char_id,sizeof(char_id));
+		    	close(fifoFd);
+		    	
 
+				sem_wait(m1);
     			printf("Citizen %d (pid=%ld) is vaccinated for the %dth time: the clinic has %d vaccine1 and %d vaccine2\n",
-    				i,(long)getpid(),j,number_of_vaccine_1(addr),number_of_vaccine_2(addr));
+    				i,(long)getpid(),j+1,number_of_vaccine_1(addr),number_of_vaccine_2(addr));
+    			if(j+1 == t){
+    				int rem_cit = remaining_citizen(helperAddr);
+    				printf("Citizen is leaving. Remaining citizens to vaccinate: %d\n", rem_cit-1);
+    				decr_remaining_citizen(helperAddr);
+    				if(rem_cit - 1 == 0){
+    					printf("All Citizens have been vaccinated.\n");
+    				}
+    			}
+    			sem_post(m2);
     			
     		}
-    		//printf("citizen %ld\n", (long)getpid());
+    		//close semaphores
+		   	sem_close(mshare);
+		    sem_close(empty);
+		    sem_close(m1);
+			sem_close(m2);
+		    sem_close(civ);
+		    sem_close(removeVac);
+		    sem_close(atomic_wait);
+
     		_exit(EXIT_SUCCESS);
     	}
     }
-    
-   	int total_process = n+v+c;
-   	int status;
+    int status;
+    for(int i=0; i<n; i++){
+    	waitpid(nurse[i],&status,0);
+    }
+    printf("Nurses have carried all vaccines to the buffer, terminating.\n");
+   	int total_process = v+c;
+   	
    	for(int i=0; i<total_process; i++){
    		wait(&status);
    	}
-   	printf("parent end\n");
    	//close shared memory
-   	printf("%s\n",addr );
+   	print_vaccinator_info(helperAddr,vaccinator,v);
+   	
    	munmap(addr,b);
+   	munmap(helperAddr,4096);
+   	munmap(third_addr,10);
    	//close semaphores
    	sem_close(mshare);
     sem_unlink("/mshare");
-
-	sem_close(full);
-    sem_unlink("/full");
 
     sem_close(empty);
     sem_unlink("/empty");
@@ -336,10 +430,9 @@ int main(int argc, char* argv[]){
     sem_close(atomic_wait);
     sem_unlink("/atomic_wait");
 
-    sem_close(m3);
-    sem_unlink("/m3");
-
     shm_unlink("/vaccineBuf");
+    shm_unlink("/helper_shm");
+    shm_unlink("/third_shr");
 	return 0;
 }
 
@@ -401,4 +494,131 @@ int number_of_vaccine_2(char* addr){
 	}
 
 	return count;
+}
+
+int remaining_citizen(char* helperAddr){
+	char temp[10];
+	temp[0] = '\0';
+	for(int i=0; i<strlen(helperAddr); i++){
+		if(helperAddr[i] == '-') break;
+		else{
+			strncat(temp,&helperAddr[i],1);
+		}
+	}
+	
+	return atoi(temp);
+}
+
+void decr_remaining_citizen(char* helperAddr){
+	int prev = remaining_citizen(helperAddr);
+	prev--;
+	char temp[4096];
+	snprintf(temp,4096,"%d-",prev);
+	int count = 0;
+	for(int i=0; i<strlen(helperAddr); i++){
+		if(helperAddr[i] == '-'){
+			count++;
+			break;
+		}
+		else{
+			count++;
+		}
+	}
+
+	for(int i=count; i<strlen(helperAddr); i++){
+		strncat(temp,&helperAddr[i],1);
+	}
+	strcpy(helperAddr,temp);
+}
+
+void incr_vaccine_count(int vaccinator_num,char* helperAddr){
+	char temp[4096];
+	temp[0] = '\0';
+	strcat(temp,helperAddr);
+	helperAddr[0] = '\0'; //reset shared memory
+	char del = '-';
+	char* token;
+	token = strtok(temp,"-");
+	while(token != NULL){
+		if(token[0] == 'v'){
+			char take_vaccinator[6];
+			char take_vac_num[6];
+			take_vaccinator[0] = '\0';
+			take_vac_num[0] = '\0';
+			int flag = 0;
+			for(int i=1; i<strlen(token); i++){
+				if(token[i] == '_') flag = 1;
+				if(flag == 0){
+
+					strncat(take_vaccinator,&token[i],1);
+				}
+				else{
+					if(token[i] != '_')
+					strncat(take_vac_num,&token[i],1);
+				}
+			}
+			int integer_vaccinator = atoi(take_vaccinator);
+			int integer_take_vac_num = atoi(take_vac_num);
+			if(vaccinator_num == integer_vaccinator){
+				integer_take_vac_num++;
+			}
+			char newAdd[20];
+			snprintf(newAdd,20,"v%d_%d-",integer_vaccinator,integer_take_vac_num);
+			strcat(helperAddr,newAdd);
+		}
+		else{
+			strcat(helperAddr,token);
+			strncat(helperAddr,&del,1);
+		}
+		token = strtok(NULL,"-");
+	}
+}
+
+int take_number_of_vaccinator(char* third_shr){
+	return atoi(third_shr);
+}
+
+void incr_number_of_vaccinator(char* third_shr){
+	int num = atoi(third_shr);
+	num++;
+	third_shr[0] = '\0';
+	char temp[5];
+	snprintf(temp,5,"%d",num);
+	strcat(third_shr,temp);
+}
+
+   	
+void print_vaccinator_info(char* helperAddr,pid_t* vaccinator,int v){
+	int k = 0;
+	char temp[4096];
+	temp[0] = '\0';
+	strcat(temp,helperAddr);
+
+	char* token;
+	token = strtok(temp,"-");
+	
+	while(token != NULL){
+		if(token[0] == 'v'){
+			char vac_num[10];
+			vac_num[0] = '\0';
+			char vac_dose_val[10];
+			vac_dose_val[0] = '\0';
+			int flag = 0;	
+			for(int j=1; j<strlen(token); j++){
+				if(token[j] == '_') flag = 1;
+				if(flag == 0){
+					strncat(vac_num,&token[j],1);
+				}
+				else{
+					if(token[j] != '_'){
+						strncat(vac_dose_val,&token[j],1);
+					}
+				}
+			}
+			printf("Vaccinator %d (pid=%ld) vaccinated %d doses.\n",k,(long)vaccinator[k],atoi(vac_dose_val));
+			k++;
+		}
+		token = strtok(NULL,"-");
+	}
+
 }
