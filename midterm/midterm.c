@@ -38,6 +38,7 @@ void incr_vaccine_count(int vaccinator_num,char* helperAddr);
 int take_number_of_vaccinator(char* third_shr);
 void incr_number_of_vaccinator(char* third_shr);
 void print_vaccinator_info(char* helperAddr,pid_t* vaccinator,int v);
+void close_all_semaphores(sem_t* mshare,sem_t* empty,sem_t* m1,sem_t* m2,sem_t* civ,sem_t* removeVac,sem_t* atomic_wait);
 
 int main(int argc, char* argv[]){
 
@@ -123,8 +124,8 @@ int main(int argc, char* argv[]){
     	perror("shm_open error");
     	return 1;
     }
-    ftruncate(helper_shm,4096);//create b size buffer
-    char* helperAddr = mmap(NULL,4096, PROT_READ | PROT_WRITE, MAP_SHARED, helper_shm,0); 
+    ftruncate(helper_shm,16384);//create b size buffer
+    char* helperAddr = mmap(NULL,16384, PROT_READ | PROT_WRITE, MAP_SHARED, helper_shm,0); 
     helperAddr[0] = '\0';
     char temp[10];
     snprintf(temp,10,"%d-",c);
@@ -215,12 +216,23 @@ int main(int argc, char* argv[]){
 					exit(1);
 				}
 				count = read(fd,&chr,sizeof(chr));
+				if(count == -1){
+					perror("Read error");
+					exit(1);
+				}
 				//After reading 1 char open lock so other process can access file
     			lock.l_type = F_UNLCK;
 				if(fcntl(fd,F_SETLK,&lock) == -1){
 					perror("fcntl error");
 					exit(1);
 				}
+				//Check ctrl+c signal
+				if(flag > 0){
+					
+				    close_all_semaphores(mshare,empty,m1,m2,civ,removeVac,atomic_wait);
+				    exit(0);
+				}
+
 				if(count == 0) break; //EOF 
 
     			if(chr != '\n'){
@@ -246,13 +258,7 @@ int main(int argc, char* argv[]){
 
 
     		//close semaphores
-		   	sem_close(mshare);
-		    sem_close(empty);
-		    sem_close(m1);
-			sem_close(m2);
-		    sem_close(civ);
-		    sem_close(removeVac);
-		    sem_close(atomic_wait);
+		   	close_all_semaphores(mshare,empty,m1,m2,civ,removeVac,atomic_wait);
 
     		_exit(EXIT_SUCCESS);
     	}
@@ -278,35 +284,19 @@ int main(int argc, char* argv[]){
 
     			if( number_of_vac == t*c){
     				//close semaphores
-				   	sem_close(mshare);
-				    sem_close(empty);
-				    sem_close(m1);
-					sem_close(m2);
-				    sem_close(civ);
-				    sem_close(removeVac);
-				    sem_close(atomic_wait);
+				   	close_all_semaphores(mshare,empty,m1,m2,civ,removeVac,atomic_wait);
 
     				exit(0);
     			}
 
 	    		sem_wait(atomic_wait);
 
-			    
-
 	    		//critical section
 	    		//update shared memory
 				sem_wait(mshare);
 
-			
 				sem_wait(removeVac);
 				remove_1and2(addr);
-				
-				
-				
-				
-				
-				
-		    	//read_civ_pid[readed_char_num] = '\0';
 		    	
 		    	sem_post(civ); // take a civ
 		    	
@@ -318,8 +308,15 @@ int main(int argc, char* argv[]){
 		    		exit(1);
 		    	}
 		    	char read_civ_pid[10];
-		    	read(fifoFd,read_civ_pid,sizeof(read_civ_pid));
-		    	close(fifoFd);
+		    	int checkReadFail = read(fifoFd,read_civ_pid,sizeof(read_civ_pid));
+		    	if(checkReadFail == -1){
+		    		perror("Fifo Read Error in vaccinator");
+		    		exit(1);
+		    	}
+		    	if(close(fifoFd) == -1){
+		    		perror("Close error in vaccinator");
+		    		exit(1);
+		    	}
 		    	
 
 		    	printf("Vaccinator %d (pid=%ld) is inviting citizen pid=%s\n",i+1,(long) getpid(),read_civ_pid);
@@ -331,7 +328,13 @@ int main(int argc, char* argv[]){
 
 
 			    sem_post(empty);
-				sem_post(empty);
+				sem_post(empty);	
+
+				//Check ctrl+C Signal
+				if(flag > 0){
+					close_all_semaphores(mshare,empty,m1,m2,civ,removeVac,atomic_wait);
+				    exit(0);
+				}
     			
     		}
 
@@ -362,8 +365,15 @@ int main(int argc, char* argv[]){
 		    		perror("open fifo error");
 		    		exit(1);
 		    	}
-		    	write(fifoFd,char_id,sizeof(char_id));
-		    	close(fifoFd);
+		    	int checkWriteFail = write(fifoFd,char_id,sizeof(char_id));
+		    	if(checkWriteFail == -1){
+		    		perror("Write error in citizen");
+		    		exit(1);
+		    	}
+		    	if(close(fifoFd) == -1){
+		    		perror("Close error in citizen");
+		    		exit(1);
+		    	}
 		    	
 
 				sem_wait(m1);
@@ -378,35 +388,55 @@ int main(int argc, char* argv[]){
     				}
     			}
     			sem_post(m2);
-    			
+    			//Check ctrl+C Signal
+				if(flag > 0){
+					close_all_semaphores(mshare,empty,m1,m2,civ,removeVac,atomic_wait);
+				    exit(0);
+				}
     		}
     		//close semaphores
-		   	sem_close(mshare);
-		    sem_close(empty);
-		    sem_close(m1);
-			sem_close(m2);
-		    sem_close(civ);
-		    sem_close(removeVac);
-		    sem_close(atomic_wait);
+		   	close_all_semaphores(mshare,empty,m1,m2,civ,removeVac,atomic_wait);
 
     		_exit(EXIT_SUCCESS);
     	}
     }
     int status;
+    int check_ctrl_c = 0;
     for(int i=0; i<n; i++){
     	waitpid(nurse[i],&status,0);
+    	if(flag > 0 && check_ctrl_c == 0){ // if user send CtrlC signal kill all childs
+    		check_ctrl_c = 1;
+    		for(int j=0; j<n; j++){
+    			kill(nurse[j], SIGKILL);
+    		}
+    		for(int j=0; j<v; j++){
+    			kill(vaccinator[j], SIGKILL);
+    		}
+    		for(int j=0; j<c; j++){
+    			kill(citizen[j], SIGKILL);
+    		}
+    		printf("Ctrl+C signal arrived and catched\n");
+    	}
     }
-    printf("Nurses have carried all vaccines to the buffer, terminating.\n");
-   	int total_process = v+c;
-   	
-   	for(int i=0; i<total_process; i++){
-   		wait(&status);
+    if(check_ctrl_c == 0){
+
+	    printf("Nurses have carried all vaccines to the buffer, terminating.\n");
+	   	int total_process = v+c;
+	   	
+	   	for(int i=0; i<total_process; i++){
+	   		wait(&status);
+	   	}
+	   	//close shared memory
+	   	print_vaccinator_info(helperAddr,vaccinator,v);
+    }
+   	if(check_ctrl_c == 1){
+   		int total_process = v+c+n;
+   		for(int i=0; i<total_process; i++){
+	   		wait(&status);
+	   	}
    	}
-   	//close shared memory
-   	print_vaccinator_info(helperAddr,vaccinator,v);
-   	
    	munmap(addr,b);
-   	munmap(helperAddr,4096);
+   	munmap(helperAddr,16384);
    	munmap(third_addr,10);
    	//close semaphores
    	sem_close(mshare);
@@ -512,8 +542,8 @@ int remaining_citizen(char* helperAddr){
 void decr_remaining_citizen(char* helperAddr){
 	int prev = remaining_citizen(helperAddr);
 	prev--;
-	char temp[4096];
-	snprintf(temp,4096,"%d-",prev);
+	char temp[16384];
+	snprintf(temp,16384,"%d-",prev);
 	int count = 0;
 	for(int i=0; i<strlen(helperAddr); i++){
 		if(helperAddr[i] == '-'){
@@ -532,7 +562,7 @@ void decr_remaining_citizen(char* helperAddr){
 }
 
 void incr_vaccine_count(int vaccinator_num,char* helperAddr){
-	char temp[4096];
+	char temp[16384];
 	temp[0] = '\0';
 	strcat(temp,helperAddr);
 	helperAddr[0] = '\0'; //reset shared memory
@@ -590,7 +620,7 @@ void incr_number_of_vaccinator(char* third_shr){
    	
 void print_vaccinator_info(char* helperAddr,pid_t* vaccinator,int v){
 	int k = 0;
-	char temp[4096];
+	char temp[16384];
 	temp[0] = '\0';
 	strcat(temp,helperAddr);
 
@@ -621,4 +651,14 @@ void print_vaccinator_info(char* helperAddr,pid_t* vaccinator,int v){
 		token = strtok(NULL,"-");
 	}
 
+}
+
+void close_all_semaphores(sem_t* mshare,sem_t* empty,sem_t* m1,sem_t* m2,sem_t* civ,sem_t* removeVac,sem_t* atomic_wait){
+	sem_close(mshare);
+    sem_close(empty);
+    sem_close(m1);
+	sem_close(m2);
+    sem_close(civ);
+    sem_close(removeVac);
+    sem_close(atomic_wait);
 }
