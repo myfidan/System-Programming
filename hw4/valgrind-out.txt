@@ -1,97 +1,97 @@
-==24328== Memcheck, a memory error detector
-==24328== Copyright (C) 2002-2013, and GNU GPL'd, by Julian Seward et al.
-==24328== Using Valgrind-3.10.1 and LibVEX; rerun with -h for copyright info
-==24328== Command: ./program file1 file2 2000
-==24328== Parent PID: 20286
-==24328== 
---24328-- 
---24328-- Valgrind options:
---24328--    --leak-check=full
---24328--    --show-leak-kinds=all
---24328--    --track-origins=yes
---24328--    --verbose
---24328--    --log-file=valgrind-out.txt
---24328-- Contents of /proc/version:
---24328--   Linux version 4.4.0-64-generic (buildd@lcy01-20) (gcc version 4.8.4 (Ubuntu 4.8.4-2ubuntu1~14.04.3) ) #85~14.04.1-Ubuntu SMP Mon Feb 20 12:11:38 UTC 2017
---24328-- Arch and hwcaps: X86, LittleEndian, x86-mmxext-sse1-sse2-lzcnt
---24328-- Page sizes: currently 4096, max supported 4096
---24328-- Valgrind library directory: /usr/lib/valgrind
---24328-- Reading syms from /lib/i386-linux-gnu/ld-2.19.so
---24328--   Considering /lib/i386-linux-gnu/ld-2.19.so ..
---24328--   .. CRC mismatch (computed 1b1c4cf5 wanted 02b590da)
---24328--   Considering /usr/lib/debug/lib/i386-linux-gnu/ld-2.19.so ..
---24328--   .. CRC is valid
---24328-- Reading syms from /home/cse312/Desktop/system/System-Programming/hw4/program
---24328-- Reading syms from /usr/lib/valgrind/memcheck-x86-linux
---24328--   Considering /usr/lib/valgrind/memcheck-x86-linux ..
---24328--   .. CRC mismatch (computed 9b80a843 wanted b9b8f553)
---24328--    object doesn't have a symbol table
---24328--    object doesn't have a dynamic symbol table
---24328-- Scheduler: using generic scheduler lock implementation.
---24328-- Reading suppressions file: /usr/lib/valgrind/default.supp
-==24328== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-24328-by-cse312-on-???
-==24328== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-24328-by-cse312-on-???
-==24328== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-24328-by-cse312-on-???
-==24328== 
-==24328== TO CONTROL THIS PROCESS USING vgdb (which you probably
-==24328== don't want to do, unless you know exactly what you're doing,
-==24328== or are doing some strange experiment):
-==24328==   /usr/lib/valgrind/../../bin/vgdb --pid=24328 ...command...
-==24328== 
-==24328== TO DEBUG THIS PROCESS USING GDB: start GDB like this
-==24328==   /path/to/gdb ./program
-==24328== and then give GDB the following command
-==24328==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=24328
-==24328== --pid is optional if only one valgrind process is running
-==24328== 
---24328-- REDIR: 0x4017e90 (ld-linux.so.2:strlen) redirected to 0x380755e2 (???)
---24328-- REDIR: 0x4017ca0 (ld-linux.so.2:index) redirected to 0x380755bd (???)
---24328-- Reading syms from /usr/lib/valgrind/vgpreload_core-x86-linux.so
---24328--   Considering /usr/lib/valgrind/vgpreload_core-x86-linux.so ..
---24328--   .. CRC mismatch (computed db3a9a41 wanted f4b91af9)
---24328--    object doesn't have a symbol table
---24328-- Reading syms from /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so
---24328--   Considering /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so ..
---24328--   .. CRC mismatch (computed fa818b99 wanted 420ff42b)
---24328--    object doesn't have a symbol table
-==24328== WARNING: new redirection conflicts with existing -- ignoring it
---24328--     old: 0x04017e90 (strlen              ) R-> (0000.0) 0x380755e2 ???
---24328--     new: 0x04017e90 (strlen              ) R-> (2007.0) 0x0402d480 strlen
---24328-- Reading syms from /lib/i386-linux-gnu/libpthread-2.19.so
---24328--   Considering /lib/i386-linux-gnu/libpthread-2.19.so ..
---24328--   .. CRC mismatch (computed 2b96a78f wanted 0b29f31f)
---24328--   Considering /usr/lib/debug/lib/i386-linux-gnu/libpthread-2.19.so ..
---24328--   .. CRC is valid
---24328-- Reading syms from /lib/i386-linux-gnu/libc-2.19.so
---24328--   Considering /lib/i386-linux-gnu/libc-2.19.so ..
---24328--   .. CRC mismatch (computed 1039bceb wanted 920e1817)
---24328--   Considering /usr/lib/debug/lib/i386-linux-gnu/libc-2.19.so ..
---24328--   .. CRC is valid
---24328-- REDIR: 0x40e2f40 (libc.so.6:strnlen) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
---24328-- REDIR: 0x40e4ef0 (libc.so.6:strncasecmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
---24328-- REDIR: 0x40ea870 (libc.so.6:memrchr) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
---24328-- REDIR: 0x40fd8b0 (libc.so.6:wcslen) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
---24328-- REDIR: 0x40e3cc0 (libc.so.6:strstr) redirected to 0x4031460 (strstr)
---24328-- REDIR: 0x40e30f0 (libc.so.6:__GI_strrchr) redirected to 0x402ce50 (__GI_strrchr)
---24328-- REDIR: 0x40e49c0 (libc.so.6:memset) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
---24328-- REDIR: 0x4194210 (libc.so.6:__memset_sse2) redirected to 0x4030820 (memset)
---24328-- REDIR: 0x40de830 (libc.so.6:malloc) redirected to 0x402a110 (malloc)
---24328-- REDIR: 0x40e4430 (libc.so.6:__GI_memchr) redirected to 0x402e7d0 (__GI_memchr)
---24328-- REDIR: 0x40e50b0 (libc.so.6:__GI_memcpy) redirected to 0x402f090 (__GI_memcpy)
---24328-- REDIR: 0x40dede0 (libc.so.6:free) redirected to 0x402b370 (free)
---24328-- REDIR: 0x40e27b0 (libc.so.6:strcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
---24328-- REDIR: 0x40eb190 (libc.so.6:__strcpy_ssse3) redirected to 0x402d4c0 (strcpy)
---24328-- REDIR: 0x40e6d60 (libc.so.6:__GI___rawmemchr) redirected to 0x4030ea0 (__GI___rawmemchr)
---24328-- REDIR: 0x40e2e80 (libc.so.6:__GI_strlen) redirected to 0x402d400 (__GI_strlen)
---24328-- REDIR: 0x40df150 (libc.so.6:calloc) redirected to 0x402c090 (calloc)
---24328-- REDIR: 0x40e6e30 (libc.so.6:strchrnul) redirected to 0x4030e50 (strchrnul)
---24328-- REDIR: 0x40dee90 (libc.so.6:realloc) redirected to 0x402c2b0 (realloc)
-==24328== 
-==24328== HEAP SUMMARY:
-==24328==     in use at exit: 0 bytes in 0 blocks
-==24328==   total heap usage: 14 allocs, 14 frees, 2,095 bytes allocated
-==24328== 
-==24328== All heap blocks were freed -- no leaks are possible
-==24328== 
-==24328== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
-==24328== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==24951== Memcheck, a memory error detector
+==24951== Copyright (C) 2002-2013, and GNU GPL'd, by Julian Seward et al.
+==24951== Using Valgrind-3.10.1 and LibVEX; rerun with -h for copyright info
+==24951== Command: ./program file1 file2 20000
+==24951== Parent PID: 20286
+==24951== 
+--24951-- 
+--24951-- Valgrind options:
+--24951--    --leak-check=full
+--24951--    --show-leak-kinds=all
+--24951--    --track-origins=yes
+--24951--    --verbose
+--24951--    --log-file=valgrind-out.txt
+--24951-- Contents of /proc/version:
+--24951--   Linux version 4.4.0-64-generic (buildd@lcy01-20) (gcc version 4.8.4 (Ubuntu 4.8.4-2ubuntu1~14.04.3) ) #85~14.04.1-Ubuntu SMP Mon Feb 20 12:11:38 UTC 2017
+--24951-- Arch and hwcaps: X86, LittleEndian, x86-mmxext-sse1-sse2-lzcnt
+--24951-- Page sizes: currently 4096, max supported 4096
+--24951-- Valgrind library directory: /usr/lib/valgrind
+--24951-- Reading syms from /lib/i386-linux-gnu/ld-2.19.so
+--24951--   Considering /lib/i386-linux-gnu/ld-2.19.so ..
+--24951--   .. CRC mismatch (computed 1b1c4cf5 wanted 02b590da)
+--24951--   Considering /usr/lib/debug/lib/i386-linux-gnu/ld-2.19.so ..
+--24951--   .. CRC is valid
+--24951-- Reading syms from /home/cse312/Desktop/system/System-Programming/hw4/program
+--24951-- Reading syms from /usr/lib/valgrind/memcheck-x86-linux
+--24951--   Considering /usr/lib/valgrind/memcheck-x86-linux ..
+--24951--   .. CRC mismatch (computed 9b80a843 wanted b9b8f553)
+--24951--    object doesn't have a symbol table
+--24951--    object doesn't have a dynamic symbol table
+--24951-- Scheduler: using generic scheduler lock implementation.
+--24951-- Reading suppressions file: /usr/lib/valgrind/default.supp
+==24951== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-24951-by-cse312-on-???
+==24951== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-24951-by-cse312-on-???
+==24951== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-24951-by-cse312-on-???
+==24951== 
+==24951== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==24951== don't want to do, unless you know exactly what you're doing,
+==24951== or are doing some strange experiment):
+==24951==   /usr/lib/valgrind/../../bin/vgdb --pid=24951 ...command...
+==24951== 
+==24951== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==24951==   /path/to/gdb ./program
+==24951== and then give GDB the following command
+==24951==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=24951
+==24951== --pid is optional if only one valgrind process is running
+==24951== 
+--24951-- REDIR: 0x4017e90 (ld-linux.so.2:strlen) redirected to 0x380755e2 (???)
+--24951-- REDIR: 0x4017ca0 (ld-linux.so.2:index) redirected to 0x380755bd (???)
+--24951-- Reading syms from /usr/lib/valgrind/vgpreload_core-x86-linux.so
+--24951--   Considering /usr/lib/valgrind/vgpreload_core-x86-linux.so ..
+--24951--   .. CRC mismatch (computed db3a9a41 wanted f4b91af9)
+--24951--    object doesn't have a symbol table
+--24951-- Reading syms from /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so
+--24951--   Considering /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so ..
+--24951--   .. CRC mismatch (computed fa818b99 wanted 420ff42b)
+--24951--    object doesn't have a symbol table
+==24951== WARNING: new redirection conflicts with existing -- ignoring it
+--24951--     old: 0x04017e90 (strlen              ) R-> (0000.0) 0x380755e2 ???
+--24951--     new: 0x04017e90 (strlen              ) R-> (2007.0) 0x0402d480 strlen
+--24951-- Reading syms from /lib/i386-linux-gnu/libpthread-2.19.so
+--24951--   Considering /lib/i386-linux-gnu/libpthread-2.19.so ..
+--24951--   .. CRC mismatch (computed 2b96a78f wanted 0b29f31f)
+--24951--   Considering /usr/lib/debug/lib/i386-linux-gnu/libpthread-2.19.so ..
+--24951--   .. CRC is valid
+--24951-- Reading syms from /lib/i386-linux-gnu/libc-2.19.so
+--24951--   Considering /lib/i386-linux-gnu/libc-2.19.so ..
+--24951--   .. CRC mismatch (computed 1039bceb wanted 920e1817)
+--24951--   Considering /usr/lib/debug/lib/i386-linux-gnu/libc-2.19.so ..
+--24951--   .. CRC is valid
+--24951-- REDIR: 0x40e2f40 (libc.so.6:strnlen) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--24951-- REDIR: 0x40e4ef0 (libc.so.6:strncasecmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--24951-- REDIR: 0x40ea870 (libc.so.6:memrchr) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--24951-- REDIR: 0x40fd8b0 (libc.so.6:wcslen) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--24951-- REDIR: 0x40e3cc0 (libc.so.6:strstr) redirected to 0x4031460 (strstr)
+--24951-- REDIR: 0x40e30f0 (libc.so.6:__GI_strrchr) redirected to 0x402ce50 (__GI_strrchr)
+--24951-- REDIR: 0x40e49c0 (libc.so.6:memset) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--24951-- REDIR: 0x4194210 (libc.so.6:__memset_sse2) redirected to 0x4030820 (memset)
+--24951-- REDIR: 0x40de830 (libc.so.6:malloc) redirected to 0x402a110 (malloc)
+--24951-- REDIR: 0x40e4430 (libc.so.6:__GI_memchr) redirected to 0x402e7d0 (__GI_memchr)
+--24951-- REDIR: 0x40e50b0 (libc.so.6:__GI_memcpy) redirected to 0x402f090 (__GI_memcpy)
+--24951-- REDIR: 0x40dede0 (libc.so.6:free) redirected to 0x402b370 (free)
+--24951-- REDIR: 0x40e27b0 (libc.so.6:strcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--24951-- REDIR: 0x40eb190 (libc.so.6:__strcpy_ssse3) redirected to 0x402d4c0 (strcpy)
+--24951-- REDIR: 0x40e6d60 (libc.so.6:__GI___rawmemchr) redirected to 0x4030ea0 (__GI___rawmemchr)
+--24951-- REDIR: 0x40e2e80 (libc.so.6:__GI_strlen) redirected to 0x402d400 (__GI_strlen)
+--24951-- REDIR: 0x40df150 (libc.so.6:calloc) redirected to 0x402c090 (calloc)
+--24951-- REDIR: 0x40e6e30 (libc.so.6:strchrnul) redirected to 0x4030e50 (strchrnul)
+--24951-- REDIR: 0x40dee90 (libc.so.6:realloc) redirected to 0x402c2b0 (realloc)
+==24951== 
+==24951== HEAP SUMMARY:
+==24951==     in use at exit: 0 bytes in 0 blocks
+==24951==   total heap usage: 16 allocs, 16 frees, 2,119 bytes allocated
+==24951== 
+==24951== All heap blocks were freed -- no leaks are possible
+==24951== 
+==24951== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)
+==24951== ERROR SUMMARY: 0 errors from 0 contexts (suppressed: 0 from 0)

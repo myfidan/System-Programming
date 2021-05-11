@@ -51,6 +51,7 @@ sem_t* semaphores;
 sem_t main_thread_queue;
 sem_t money_semaphore;
 sem_t structure_semaphore;
+sem_t busy_student_semaphore;
 //Signal handler
 void handler(int signal_number){
 	++flag;
@@ -126,6 +127,7 @@ void* student_hire_func(void* arg){
 		thread_struct_data->available = 1;
 		printf("%s is waiting for a homework\n",thread_struct_data->name );
 		sem_post(&structure_semaphore);
+		sem_post(&busy_student_semaphore);
 	}
 
 	return NULL;
@@ -134,9 +136,10 @@ void* student_hire_func(void* arg){
 int find_best_student(char type){
 	//First check money 
 	if(money2 < lowestMoney) return -1;
-	sem_wait(&money_semaphore);
-	
-	sem_post(&money_semaphore);
+
+	sem_wait(&busy_student_semaphore);
+
+	sem_wait(&structure_semaphore);
 
 	int choice = 0;
 	if(type == 'C'){ // Cost
@@ -172,6 +175,7 @@ int find_best_student(char type){
 		
 	}
 	money2 -= students_for_hire[choice].price;
+	sem_post(&structure_semaphore);
 	return choice;
 }
 
@@ -209,6 +213,7 @@ int main(int argc, char* argv[]){
    	sem_init(&main_thread_queue,0,0);
    	sem_init(&money_semaphore,0,1);
    	sem_init(&structure_semaphore,0,1);
+   	sem_init(&busy_student_semaphore,0,total_student_for_hire);
    	semaphores = (sem_t*)malloc(sizeof(sem_t) * total_student_for_hire);
    	for (int i = 0; i < total_student_for_hire; ++i)
    	{
@@ -282,9 +287,9 @@ int main(int argc, char* argv[]){
    		// array homework type ını günncelle
    		// sonra onun semaphorunu postla
    		// ve devam et money bitene kadar veya que bitne kadar
-   		sem_wait(&structure_semaphore);
+   		
    		int best_choice = find_best_student(queue[k]);
-   		sem_post(&structure_semaphore);
+   		
    		if(best_choice == -1) break;
    		homeworkType[best_choice] = queue[k];
 
