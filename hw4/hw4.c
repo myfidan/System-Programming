@@ -27,13 +27,16 @@ sig_atomic_t flag = 0;
 int endHire = 0;
 int endQueue = 0;
 int lowestMoney = 1000;
+int lastStudents = 0;
+int lastStudentsForHire = 0;
+int checkLastStudents = 0;
 //queue array
 int queueSize = 0;
 int frontIndex = 0;
 int queueCap = 2;
 char* queue;
 char* homeworkType;
-
+int* homeworkCountArray;
 //Student for hire infos
 int total_student_for_hire;
 typedef struct{
@@ -52,6 +55,8 @@ sem_t main_thread_queue;
 sem_t money_semaphore;
 sem_t structure_semaphore;
 sem_t busy_student_semaphore;
+sem_t waitMoney;
+sem_t mainBarrier;
 //Signal handler
 void handler(int signal_number){
 	++flag;
@@ -69,6 +74,7 @@ void* thread_g_fun(void* arg){
 	}
 	//Read file to the que
 	char chr;
+	int checkFlag = 0;
 	while(read(fd,&chr,1)){
 		if(chr != '\n'){
 			if(queueSize == queueCap){
@@ -78,11 +84,23 @@ void* thread_g_fun(void* arg){
 			}
 			queue[queueSize] = chr;
 			queueSize++;
+			sem_wait(&money_semaphore);
+			if(money < lowestMoney){
+				printf("G has no more money for homeworks, terminating\n");	
+				sem_post(&money_semaphore);
+				sem_post(&main_thread_queue);
+				checkFlag = 1;
+				break;
+			}
 			printf("G has a new homework %c; remaining money is %dTL\n",chr,money );
+
+			sem_post(&money_semaphore);
 			sem_post(&main_thread_queue);
 			
 		}
 	}
+
+	if(checkFlag == 0) printf("G has no other homeworks, terminating.\n");
 	endQueue = 1;
 	sem_post(&main_thread_queue);
 	if(close(fd) == -1){
@@ -124,8 +142,16 @@ void* student_hire_func(void* arg){
 		sleep(6-thread_struct_data->speed);
 				//make not busy
 		sem_wait(&structure_semaphore);
+		homeworkCountArray[thread_struct_data->sem_num]++;
 		thread_struct_data->available = 1;
 		printf("%s is waiting for a homework\n",thread_struct_data->name );
+		if(checkLastStudents == 1){
+			lastStudentsForHire += 1;
+			if(lastStudentsForHire == lastStudents){
+				sem_post(&mainBarrier);
+			}
+		}
+		sem_post(&waitMoney);
 		sem_post(&structure_semaphore);
 		sem_post(&busy_student_semaphore);
 	}
@@ -139,43 +165,80 @@ int find_best_student(char type){
 
 	sem_wait(&busy_student_semaphore);
 
-	sem_wait(&structure_semaphore);
+	
 
-	int choice = 0;
+	int choice = -2;
 	if(type == 'C'){ // Cost
-		double minC = 1000;
-		
-		for(int i=0; i<total_student_for_hire; i++){
-			if(minC > students_for_hire[i].price && students_for_hire[i].available == 1 && money2 >= students_for_hire[i].price){
-				minC = students_for_hire[i].price;
-				choice = i;
+		while(choice == -2){
+			sem_wait(&structure_semaphore);
+			double minC = 1000;
+			for(int i=0; i<total_student_for_hire; i++){
+				if(minC > students_for_hire[i].price && students_for_hire[i].available == 1 && money2 >= students_for_hire[i].price){
+					minC = students_for_hire[i].price;
+					choice = i;
+				}
+			}
+			sem_init(&waitMoney,0,0);
+			sem_post(&structure_semaphore);
+			if(choice == -2){
+				// Wait until one possible lower money student idle
+				sem_wait(&waitMoney);
 			}
 		}
-		
+
+		sem_destroy(&waitMoney);
+		money2 -= students_for_hire[choice].price;
+				
 	}
 	else if(type == 'Q'){// Quality
-		int maxQ = 0;
+		while(choice == -2){
+			sem_wait(&structure_semaphore);
 		
-		for(int i=0; i<total_student_for_hire; i++){
-			if(maxQ < students_for_hire[i].quality && students_for_hire[i].available == 1 && money2 >= students_for_hire[i].price){
-				maxQ = students_for_hire[i].quality;
-				choice = i;
+			int maxQ = 0;
+			
+			for(int i=0; i<total_student_for_hire; i++){
+				if(maxQ < students_for_hire[i].quality && students_for_hire[i].available == 1 && money2 >= students_for_hire[i].price){
+					maxQ = students_for_hire[i].quality;
+					choice = i;
+				}
+			}
+			sem_init(&waitMoney,0,0);
+			sem_post(&structure_semaphore);
+			if(choice == -2){
+				// Wait until one possible lower money student idle
+				sem_wait(&waitMoney);
 			}
 		}
+		sem_destroy(&waitMoney);
+		money2 -= students_for_hire[choice].price;
+		
 	}
 	else{ //S Speed
-		int maxS = 0;
-		
-		for(int i=0; i<total_student_for_hire; i++){
-			if(maxS < students_for_hire[i].speed && students_for_hire[i].available == 1 && money2 >= students_for_hire[i].price){
-				maxS = students_for_hire[i].speed;
-				choice = i;
+		while(choice == -2){
+			sem_wait(&structure_semaphore);
+			
+			int maxS = 0;
+			
+			for(int i=0; i<total_student_for_hire; i++){
+				if(maxS < students_for_hire[i].speed && students_for_hire[i].available == 1 && money2 >= students_for_hire[i].price){
+					maxS = students_for_hire[i].speed;
+					choice = i;
+				}
+			}
+			sem_init(&waitMoney,0,0);
+			sem_post(&structure_semaphore);
+			if(choice == -2){
+				// Wait until one possible lower money student idle
+				sem_wait(&waitMoney);
 			}
 		}
+		sem_destroy(&waitMoney);
+		money2 -= students_for_hire[choice].price;
+		
 		
 	}
-	money2 -= students_for_hire[choice].price;
-	sem_post(&structure_semaphore);
+	
+	
 	return choice;
 }
 
@@ -207,13 +270,27 @@ int main(int argc, char* argv[]){
    	money2=money;
    	//take student for hire infos
    	check_student_for_hire_count(studentsFilePath);
+   	//Print students attributes first
+   	printf("%d students-for-hire threads have been created.\n",total_student_for_hire );
+   	printf("Name Q S C\n");
+   	for (int i = 0; i < total_student_for_hire; ++i)
+   	{
+   		printf("%s %d %d %.1lf\n",students_for_hire[i].name,students_for_hire[i].quality,students_for_hire[i].speed,students_for_hire[i].price );
+   	}
    	//create type homework array for students for hire
    	homeworkType = (char*)malloc(total_student_for_hire * sizeof(char));
+   	//create array that hold whick student do how many homework
+   	homeworkCountArray = (int*)malloc(total_student_for_hire * sizeof(int));
+   	for(int i=0; i<total_student_for_hire; i++){
+   		homeworkCountArray[i] = 0;
+   	}
    	//Create and init semaphores
    	sem_init(&main_thread_queue,0,0);
    	sem_init(&money_semaphore,0,1);
    	sem_init(&structure_semaphore,0,1);
    	sem_init(&busy_student_semaphore,0,total_student_for_hire);
+   	sem_init(&waitMoney,0,0);
+   	sem_init(&mainBarrier,0,0);
    	semaphores = (sem_t*)malloc(sizeof(sem_t) * total_student_for_hire);
    	for (int i = 0; i < total_student_for_hire; ++i)
    	{
@@ -258,11 +335,7 @@ int main(int argc, char* argv[]){
    			printf("Error in thread creation\n");
    			exit(1);
    		}
-   		//printf("%u\n",student_hire_threads[i] );
-   		char buff[100];
-   		buff[0] = '\0';
-   		snprintf(buff,100,"%u",(unsigned int)student_hire_threads[i]);
-		printf("%s\n",buff );   		
+   		
    	}
    	
    	
@@ -271,6 +344,8 @@ int main(int argc, char* argv[]){
    	//Main thread assign queue jobs for other threads
    	//If queue or money end break loop
    	int k=0;
+   	int endResult = 0;
+   	int best_choice;
    	while(1){
    		sem_wait(&main_thread_queue);
    		int val;
@@ -279,16 +354,16 @@ int main(int argc, char* argv[]){
    			exit(1);
    		}
    		if(endQueue > 0 && val == 0) {
+   			endResult = 1;
    			break;
    		}
-   		printf("%c\n",queue[k] );
    		// Burdan sonra uygun studentı bul
    		// busy bitini güncelle 
    		// array homework type ını günncelle
    		// sonra onun semaphorunu postla
    		// ve devam et money bitene kadar veya que bitne kadar
    		
-   		int best_choice = find_best_student(queue[k]);
+   		best_choice = find_best_student(queue[k]);
    		
    		if(best_choice == -1) break;
    		homeworkType[best_choice] = queue[k];
@@ -299,13 +374,25 @@ int main(int argc, char* argv[]){
    		k++;
    	}
 
-   	sleep(10); //şimdilik
-   	
-
-   	for(int i=0; i<queueSize; i++){
-   		printf("%c",queue[i] );
+   	sem_wait(&structure_semaphore);
+   	checkLastStudents = 1;
+   	for(int i=0; i<total_student_for_hire; i++){
+   		if(students_for_hire[i].available == 0) lastStudents++;
    	}
+   	sem_post(&structure_semaphore);
 
+   	if(lastStudents != 0){
+   		//semwait
+   		sem_wait(&mainBarrier);
+   	}
+   	//sleep(10); //şimdilik
+   	
+   	if(endResult == 1){
+   		printf("No more Homeworks left or coming in, closing.\n");
+   	}
+   	else if(best_choice == -1){
+   		printf("Money is over, closing.\n");
+   	}
    	//Buraya geldiğimde tüm studentslar waitlerin bekliyor
    	//veya money düşürme işlemini yapmış olmaları lazım
    	//Yukarıdaki sleep şimdilik bunu sağlıyor ama sleepsiz olmalı
@@ -315,13 +402,22 @@ int main(int argc, char* argv[]){
    	{
    		sem_post(&semaphores[i]);
    	}
-   	printf("\n");
+   	
 
    	//Wait student hire threads end
    	for(int i=0; i < total_student_for_hire; i++){
    		pthread_join(student_hire_threads[i],NULL);
    	}
-   	printf("After end of total_student_for_hire\n");
+   	printf("Homeworks solved and money made by the students:\n");
+   	int total_homework = 0;
+   	double total_money = 0;
+   	for(int i=0; i<total_student_for_hire; i++){
+   		printf("%s %d %.1lf\n",students_for_hire[i].name,homeworkCountArray[i], homeworkCountArray[i]*students_for_hire[i].price);
+   		total_homework += homeworkCountArray[i];
+   		total_money += homeworkCountArray[i]*students_for_hire[i].price;
+   	}
+   	printf("Total cost for %d homeworks %.1lfTL\n",total_homework,total_money);
+   	printf("Money left at G's account: %dTL\n",money);
    	//Destroy all semaphores before exit and free resources
    	free(queue);
    	free(students_for_hire);
@@ -334,6 +430,7 @@ int main(int argc, char* argv[]){
    	}
    	free(semaphores);
    	free(homeworkType);
+   	free(homeworkCountArray);
    	if(sem_destroy(&main_thread_queue) == -1){
 		printf("Error in semaphore destroy\n");
 		exit(1);
@@ -346,11 +443,14 @@ int main(int argc, char* argv[]){
    		printf("Error in semaphore destroy\n");
    		exit(1);
    	}
+   	if(sem_destroy(&mainBarrier) == -1){
+   		printf("Error in semaphore destroy\n");
+   		exit(1);
+   	}
    	if(flag > 0){
    		printf("Terminating signal receiver, closing.\n");
    		exit(0);
    	}
-   	printf("Main ends\n");
 	return 0;
 }
 
