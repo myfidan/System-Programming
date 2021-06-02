@@ -9,7 +9,6 @@
 
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>
 #include <sys/syscall.h>
 #include <errno.h>
 #include <sys/wait.h>
@@ -20,6 +19,10 @@
 #include <sys/mman.h>
 #include <pthread.h>
 
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <unistd.h>
 
 #define BD_NO_CHDIR 01 /* Don't chdir("/") */
 #define BD_NO_CLOSE_FILES 02 /* Don't close all open files */
@@ -68,12 +71,49 @@ int main(int argc, char *argv[]){
 	}
 
 	take_input(argc,argv);
-	
-	fprintf(logFile,"%d\n",port );
-	fprintf(logFile,"%s\n",pathToLogFile );
-	fprintf(logFile,"%d\n",poolSize);
-	fprintf(logFile,"%s\n",datasetPath);
+	//Create socket
+	int sfd,cfd;
+	sfd = socket(AF_INET, SOCK_STREAM, 0);
+	if(sfd == -1){
+		//print socket error
+		err_exit(1);
+	}
+	//structure
+	struct sockaddr_in serverInf;
+	memset(&serverInf,0,sizeof(serverInf));
+	serverInf.sin_family = AF_INET;
+	serverInf.sin_addr.s_addr = inet_addr("127.0.0.1");
+	serverInf.sin_port = htons(port);
+	//bind
+	if(bind(sfd,(struct sockaddr*)&serverInf,sizeof(serverInf)) < 0){
+		//print socket bind error
+		err_exit(1);
+	}
+	//listen
+	if(listen(sfd,10) < 0 ){
+        //print listen error
+        err_exit(1);
+    }
 
+    //accept
+   // while(1){
+	    struct sockaddr_in clientInf;
+	    socklen_t clientSize = sizeof(clientInf);
+	    cfd = accept(sfd,(struct sockaddr*)&clientInf,&clientSize);
+	    if(cfd < 0){
+	    	//print accept error
+	    	err_exit(1);
+	    }
+
+	  
+	    fprintf(logFile,"%d\n",port );
+		fprintf(logFile,"%s\n",pathToLogFile );
+		fprintf(logFile,"%d\n",poolSize);
+		fprintf(logFile,"%s\n",datasetPath);
+ //   }
+
+	char buffer[1024];
+	read(cfd,buffer,1024);
 	// AFTER this is a deamon server..
 	//sleep(5);
 	clear_sema();
@@ -121,13 +161,13 @@ void create_deamon(){
 }
 
 void create_one_instance(){
-	init_semaphore = sem_open("/init_one",O_CREAT | O_EXCL);
+	init_semaphore = sem_open("/init_one",O_CREAT | O_EXCL,0666,0);
 	if(init_semaphore == SEM_FAILED){
 		if(errno == EEXIST){
 			printf("Can't run second server instance\n");
 			exit(-1);
 		}
-		printf("semaphore error\n");
+		printf("semaphore error %s\n",strerror(errno));
 		err_exit(-1);
 	}
 }
