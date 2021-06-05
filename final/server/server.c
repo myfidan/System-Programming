@@ -32,13 +32,41 @@ stderr to /dev/null */
 #define BD_MAX_CLOSE 8192 /* Maximum file descriptors to close if
 sysconf(_SC_OPEN_MAX) is indeterminate */
 
+//queue 
+struct node{
+	int sockedID;
+	struct node* next;
+};
+
+struct node* front = NULL;
+struct node* back = NULL;
+
+void enqueue(int id);
+int dequeue();
+
+struct sqlQuery{
+	int select;
+	int update;
+	int distinct;
+	char columns[1024];
+	char whereCond[255];
+};
 
 void create_deamon();
 //This 2 using for create 1 instance of server
 void create_one_instance();
 void clear_sema();
 void take_input(int argc,char* argv[]);
+void FillTable();
+void freeTable();
+void FillSqlStructure(struct sqlQuery* sqlValues,char* temp);
 void err_exit(int errnum);
+
+void* threadFun(void* arg);
+void handle_client(int cfd);
+void readDataBase(struct sqlQuery sqlValues,char* sqlResult);
+void writeDataBase(struct sqlQuery sqlValues,char* sqlResult);
+
 sig_atomic_t sig_flag = 0;
 void handler(int signal_number){
 	sig_flag++;
@@ -52,6 +80,17 @@ int poolSize;
 char datasetPath[255];
 FILE* logFile;
 FILE* dataFile;
+//mutex for shared memory queue
+pthread_mutex_t queMutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t condQue = PTHREAD_COND_INITIALIZER;
+int queSize = 0;
+
+//This is my data structure table
+char*** table;
+char* firstRow = NULL; //This is first Row(Column names)
+char** fr; //Column names
+int tableSize = 0;
+int totalColm = 0;
 
 int main(int argc, char *argv[]){
 	//Check this is first instance or not
@@ -71,6 +110,12 @@ int main(int argc, char *argv[]){
 	}
 
 	take_input(argc,argv);
+	FillTable();
+	pthread_t threadPool[poolSize];
+	//create Threads
+	for(int i=0; i<poolSize; i++){
+		pthread_create(&threadPool[i],NULL,threadFun,NULL);
+	}
 	//Create socket
 	int sfd,cfd;
 	sfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -94,28 +139,30 @@ int main(int argc, char *argv[]){
         //print listen error
         err_exit(1);
     }
-
+    
     //accept
-   // while(1){
+  	while(1){
 	    struct sockaddr_in clientInf;
 	    socklen_t clientSize = sizeof(clientInf);
 	    cfd = accept(sfd,(struct sockaddr*)&clientInf,&clientSize);
+	    if(sig_flag > 0) break;
 	    if(cfd < 0){
 	    	//print accept error
 	    	err_exit(1);
 	    }
+	    //pthread_create(&thr[k++],NULL,threadFun,(void*)cfd);
+	    pthread_mutex_lock(&queMutex);
+	    queSize++;
+	    enqueue(cfd);
+	    pthread_cond_signal(&condQue);
+	    pthread_mutex_unlock(&queMutex);
+	    
+ 	}
 
-	  
-	    fprintf(logFile,"%d\n",port );
-		fprintf(logFile,"%s\n",pathToLogFile );
-		fprintf(logFile,"%d\n",poolSize);
-		fprintf(logFile,"%s\n",datasetPath);
- //   }
-
-	char buffer[1024];
-	read(cfd,buffer,1024);
+	
 	// AFTER this is a deamon server..
 	//sleep(5);
+	freeTable();
 	clear_sema();
 
 	return 0;
@@ -211,7 +258,7 @@ void take_input(int argc,char* argv[]){
     }
     //open log file
     logFile = fopen(pathToLogFile,"w");
-    dataFile = fopen(datasetPath,"r+");
+    dataFile = fopen(datasetPath,"r");
 
     if(logFile == NULL || dataFile == NULL) err_exit(-1);
 }
@@ -219,4 +266,307 @@ void take_input(int argc,char* argv[]){
 void err_exit(int errnum){
 	clear_sema();
 	exit(errnum);
+}
+
+void* threadFun(void* arg){
+
+    
+	while(1){
+		pthread_mutex_lock(&queMutex);
+		while(queSize <= 0)  
+			pthread_cond_wait(&condQue, &queMutex);
+		queSize--;
+		int cfd = dequeue();
+		pthread_mutex_unlock(&queMutex);
+		
+		handle_client(cfd);
+
+	}
+	
+	return NULL;
+}
+
+void handle_client(int cfd){
+	char buffer[1024];
+	char sqlResult[1024*1024];
+	
+	while(1){
+		int c = read(cfd,buffer,sizeof(buffer));
+	    if(c == -1 || c == 0) break; //client end
+	    //if(buffer == NULL) break;
+	    
+	    //fprintf(logFile,"%s\n",buffer );
+	    //fflush (logFile);
+	    sqlResult[0] = '\0';
+	    char temp[1024];
+	    strcpy(temp,buffer);
+	    struct sqlQuery sqlValues;
+
+	    FillSqlStructure(&sqlValues,temp); //parse sql quary into the structure
+	    
+	    if(sqlValues.select){ //Reader (SELECT)
+	    	readDataBase(sqlValues,sqlResult);
+  	
+	    }
+	    else{ // Writer (UPDATE)
+	    	writeDataBase(sqlValues,sqlResult);
+	    }
+	    
+
+  		fprintf(logFile, "%d\n%d\n%d\n%s\n%s\n",sqlValues.select,sqlValues.update,sqlValues.distinct,sqlValues.columns,sqlValues.whereCond);
+	    fflush(logFile);
+	    //fprintf(logFile, "%s\n",sqlResult );
+	   	//char temp2[] = "sent from server";
+	   	//strcpy(buffer,temp2);
+	   	fprintf(logFile, "%d\n", strlen(sqlResult)+1);
+	   	fflush(logFile);
+
+	   	char sizeTemp[10];
+	   	char rightDel = '-';
+	   	sprintf(sizeTemp,"%d",strlen(sqlResult)+1);
+	   	
+	   	int endindex = 0;
+	   	while(sizeTemp[endindex] != '\0'){
+	   		endindex++;
+	   	}
+	   	fprintf(logFile, "%d\n", endindex);
+	   		fflush(logFile);
+	   	for(int i=endindex; i<9; i++){
+	   		strncat(sizeTemp,&rightDel,1);
+	   	}
+	   	fprintf(logFile, "%s\n", sizeTemp);
+	   		fflush(logFile);
+
+	   	write(cfd,sizeTemp,strlen(sizeTemp)+1);
+	   		
+		if(write(cfd,sqlResult,strlen(sqlResult)+1) == -1){
+			fprintf(logFile, "Write socket error\n" );
+			fflush(logFile);
+			err_exit(1);
+		}
+		bzero(buffer, 1024);
+		//bzero(sqlResult,strlen(sqlResult));
+	}
+}
+
+//Simple enqueue implementation for my que
+void enqueue(int id){
+	struct node* temp = (struct node*)malloc(sizeof(struct node));
+	temp->sockedID = id;
+	temp->next = NULL;
+	if(back == NULL){
+		front = temp;
+	}
+	else{
+		back->next = temp;
+	}
+	back = temp;
+}
+
+//Simple dequeue implementation for my que
+int dequeue(){
+	if(front == NULL){
+		return -2;
+	}
+	int x = front->sockedID;
+	struct node* temp = front;
+	front = front->next;
+	if(front == NULL){
+		back = NULL;
+	}
+	free(temp);
+	return x;
+}
+
+void FillTable(){
+	char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+	const char s[2] = ",";
+    char *token;
+	
+	read = getline(&firstRow, &len, dataFile);
+	
+	for(int i=0; firstRow[i] != '\0'; i++){
+		if(firstRow[i] == ',') totalColm++;
+	}
+	totalColm++;
+
+	fr = (char**)malloc(sizeof(char*)*totalColm);
+	token=strtok(firstRow,s);
+	int index = 0;
+	while(token != NULL){
+		if(token[strlen(token)-1] == '\n') token[strlen(token)-1] = '\0';
+		fr[index] = (char*)malloc(sizeof(char)*255);
+		strcpy(fr[index],token);
+		token = strtok(NULL,s);
+		index++;
+	}
+
+
+	int cap = 2;
+	table = (char***)malloc(sizeof(char**)*cap);
+	while((read = getline(&line,&len,dataFile))!=-1){
+		if(tableSize == cap){
+			table = (char***)realloc(table,sizeof(char**)*cap*2);
+			cap *= 2;
+		}
+		table[tableSize] = (char**)malloc(sizeof(char*)*totalColm);
+		int z=0;
+		for(int k=0; k<totalColm; k++){
+			table[tableSize][k] = (char*)malloc(sizeof(char)*255);
+			table[tableSize][k][0] = '\0';
+			int doubleq = 0;
+			while(line[z] != '\0'){
+				if(line[z] == ',' && doubleq == 0){
+					z++;
+					break;
+				}
+				if(line[z] == '"'){
+					if(doubleq == 0){
+						doubleq = 1;
+					}
+					else{
+						doubleq = 0;
+					}
+				}
+				strncat(table[tableSize][k],&line[z],1);
+				z++;
+			}
+			
+			//strcpy(table[tableSize][k],line);
+			//table[tableSize][k] = line;
+		}
+		tableSize++;
+	}
+	/*
+	for(int i=0; i<totalColm; i++){
+    	fprintf(logFile,"%s\n",fr[i]);
+    }
+    
+	for(int i = 0; i < tableSize; ++i){
+        for(int j = 0; j < totalColm; ++j){
+            fprintf(logFile,"%s\n", table[i][j]);
+        }
+    }
+    fflush(logFile);
+	*/
+    fclose(dataFile);
+	 if (line)
+	    free(line);
+}
+
+void FillSqlStructure(struct sqlQuery* sqlValues,char* temp){
+	const char s[2] = " ";
+	char *token;
+	token = strtok(temp,s);
+	int sqlIndex = 0;
+
+	sqlValues->select = 0;
+	sqlValues->update = 0;
+	sqlValues->distinct = 0;
+	sqlValues->columns[0] = '\0';
+	sqlValues->whereCond[0] = '\0';
+	int updateWhere = 0;
+	while(token != NULL){
+		if(sqlIndex == 1){ //Check Select or Update
+			char selectStr[] = "SELECT";
+			if(strcmp(token,selectStr) == 0){ //SELECT
+				sqlValues->select = 1;
+			}
+			else{ // UPDATE
+				sqlValues->update = 1;
+			}
+		}
+		if(sqlIndex == 2 && sqlValues->select == 1){ //Check DISTINC CONTROL
+			char distinctStr[] = "DISTINCT";
+			if(strcmp(token,distinctStr) == 0){
+				sqlValues->distinct = 1;
+			}
+			else{
+				strcat(sqlValues->columns,token);
+			}
+		}
+		if(sqlIndex>2 && sqlValues->select == 1){
+			char fromStr[] = "FROM";
+			if(strcmp(token,fromStr) != 0){
+				strcat(sqlValues->columns,token);
+			}
+			else{
+				break;
+			}
+		}
+		if(sqlIndex>3 && sqlValues->update == 1 && updateWhere == 0){
+			char whereStr[] = "WHERE";
+			if(strcmp(token,whereStr) != 0){
+				strcat(sqlValues->columns,token);
+			}
+			else{
+				updateWhere = 1;
+				
+			}
+		}
+		if(updateWhere == 1){
+			strcat(sqlValues->whereCond,token);
+		}
+
+		token = strtok(NULL,s);
+		sqlIndex++;
+	}
+}
+
+
+void readDataBase(struct sqlQuery sqlValues,char* sqlResult){
+	if(sqlValues.distinct == 0){ // NOT DISTINCT
+		const char s[2] = ",";
+  		char *token;
+
+  		token = strtok(sqlValues.columns,s);
+  		int* arr = (int*)malloc(sizeof(int)*totalColm);
+  		int arrSize = 0;
+	    
+	    while( token != NULL ) {
+	    	//strcat(sqlResult,token);
+	    	for(int i=0; i<totalColm; i++){
+	    		if(strcmp(fr[i],token) == 0){
+	    			arr[arrSize++] = i;
+	    			break;
+	    		}
+	    	}
+	    	token = strtok(NULL, s);
+	    }
+	    //Tabledan elemanları al
+	    for(int i=0; i<tableSize; i++){
+	    	for(int j=0; j<arrSize; j++){
+	    		strcat(sqlResult,table[i][arr[j]]);
+	    		strcat(sqlResult,"\t");
+	    		//fprintf(logFile, "%s\t",table[i][arr[j]]);
+	    	}
+	    	//fprintf(logFile, "\n");
+	    	strcat(sqlResult,"\n");
+	    }
+	}
+	else{ // DISTINCT
+		strcat(sqlResult,"select(Distinct)");
+	}
+	//strcat(sqlResult,"select(read)");
+}
+
+void writeDataBase(struct sqlQuery sqlValues,char* sqlResult){
+	strcat(sqlResult,"write(update");
+}
+
+
+void freeTable(){
+	for(int i=0;i<tableSize; i++){
+    	for(int j=0; j<totalColm; j++){
+	    	free(table[i][j]);
+	    }
+	    free(table[i]);
+    }
+    free(table);
+    for(int i=0; i<totalColm; i++){
+    	free(fr[i]);
+    }
+    free(fr);
 }

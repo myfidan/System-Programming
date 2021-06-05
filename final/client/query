@@ -1,4 +1,7 @@
 1 SELECT * FROM TABLE;
-1 SELECT columnName1, columnName2, columnName3 FROM TABLE;
+1 SELECT Year, Industry_code_NZSIOC, Units FROM TABLE;
 2 UPDATE TABLE SET columnName1=’value1’, columnName2=’value2’ WHERE columnName=’valueX’
-1 SELECT DISTINCT columnName1,columnName2 FROM TABLE;
+1 SELECT DISTINCT Value,Industry_code_ANZSIC06 FROM TABLE;
+2 UPDATE TABLE SET columnName1=’value1’ WHERE columnName=’valueX’
+2 UPDATE TABLE SET columnName2=’value2’ WHERE columnName=’valueX’
+3 SELECT Year, Industry_code_NZSIOC, Units FROM TABLE;

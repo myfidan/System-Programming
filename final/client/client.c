@@ -69,15 +69,38 @@ int main(int argc, char *argv[]){
 	queries = (char**)malloc(sizeof(char*)*querySize);
     readQueries(queries);
 
+    char buffer[1024*1024];
+    int readC;
     for(int i=0; i<querySize; i++){
-    	printf("%s\n",queries[i]);
+        buffer[0] = '\0';
+    	//printf("%s\n",queries[i]);
+    	
+    	write(sfd,queries[i],strlen(queries[i])+1);
+
+        int totalReadData = 0;
+        char readsize[10];
+        int totalsizeInt;
+        readC = read(sfd,readsize,sizeof(readsize));
+        printf("%d\n",totalReadData );
+        printf("%s\n",readsize );
+        totalsizeInt = atoi(readsize);
+        printf("%d\n",totalsizeInt );
+        while(totalsizeInt != totalReadData){
+            readC = read(sfd,buffer,sizeof(buffer));
+            printf("%s",buffer );
+
+            totalReadData += readC;
+        }
+
+        sleep(1);
     }
     
-	sleep(6);
 	printf("%s\n",IPv4 );
 	printf("%d\n",PORT );
 	printf("%s\n",queryFilePath );
 	printf("%d\n",clientID );
+    close(sfd);
+
 	return 0;
 }
 
