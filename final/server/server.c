@@ -67,6 +67,7 @@ void handle_client(int cfd);
 void readDataBase(struct sqlQuery sqlValues,char* sqlResult);
 void writeDataBase(struct sqlQuery sqlValues,char* sqlResult);
 
+
 sig_atomic_t sig_flag = 0;
 void handler(int signal_number){
 	sig_flag++;
@@ -496,6 +497,9 @@ void FillSqlStructure(struct sqlQuery* sqlValues,char* temp){
 				break;
 			}
 		}
+		if(updateWhere == 1){
+			strcat(sqlValues->whereCond,token);
+		}
 		if(sqlIndex>3 && sqlValues->update == 1 && updateWhere == 0){
 			char whereStr[] = "WHERE";
 			if(strcmp(token,whereStr) != 0){
@@ -506,9 +510,7 @@ void FillSqlStructure(struct sqlQuery* sqlValues,char* temp){
 				
 			}
 		}
-		if(updateWhere == 1){
-			strcat(sqlValues->whereCond,token);
-		}
+		
 
 		token = strtok(NULL,s);
 		sqlIndex++;
@@ -524,17 +526,24 @@ void readDataBase(struct sqlQuery sqlValues,char* sqlResult){
   		token = strtok(sqlValues.columns,s);
   		int* arr = (int*)malloc(sizeof(int)*totalColm);
   		int arrSize = 0;
-	    
-	    while( token != NULL ) {
+	    if(strcmp(token,"*") != 0){
+	    	while( token != NULL ) {
 	    	//strcat(sqlResult,token);
-	    	for(int i=0; i<totalColm; i++){
-	    		if(strcmp(fr[i],token) == 0){
-	    			arr[arrSize++] = i;
-	    			break;
-	    		}
+		    	for(int i=0; i<totalColm; i++){
+		    		if(strcmp(fr[i],token) == 0){
+		    			arr[arrSize++] = i;
+		    			break;
+		    		}
+		    	}
+		    	token = strtok(NULL, s);
 	    	}
-	    	token = strtok(NULL, s);
 	    }
+	    else{ // SELECT *
+	    	for(int i=0; i<totalColm; i++){
+	    		arr[arrSize++] = i;
+	    	}
+	    }
+	    
 	    //Tabledan elemanları al
 	    for(int i=0; i<tableSize; i++){
 	    	for(int j=0; j<arrSize; j++){
@@ -547,14 +556,139 @@ void readDataBase(struct sqlQuery sqlValues,char* sqlResult){
 	    }
 	}
 	else{ // DISTINCT
-		strcat(sqlResult,"select(Distinct)");
+		const char s[2] = ",";
+  		char *token;
+
+  		token = strtok(sqlValues.columns,s);
+  		int* arr = (int*)malloc(sizeof(int)*totalColm);
+  		int arrSize = 0;
+	    if(strcmp(token,"*") != 0){
+
+		    while( token != NULL ) {
+		    	//strcat(sqlResult,token);
+		    	for(int i=0; i<totalColm; i++){
+		    		if(strcmp(fr[i],token) == 0){
+		    			arr[arrSize++] = i;
+		    			break;
+		    		}
+		    	}
+		    	token = strtok(NULL, s);
+		    }
+	    }
+	    else{
+	    	for(int i=0; i<totalColm; i++){
+	    		arr[arrSize++] = i;
+	    	}
+	    }
+	    //Tabledan elemanları al
+	    char rowTemp[1024];
+	    
+	    for(int i=0; i<tableSize; i++){
+	    	rowTemp[0] = '\0';
+	    	for(int j=0; j<arrSize; j++){
+	    		strcat(rowTemp,table[i][arr[j]]);
+	    		strcat(rowTemp,"\t");
+	    		//fprintf(logFile, "%s\t",table[i][arr[j]]);
+	    	}
+	    	//fprintf(logFile, "\n");
+	    	char* pch;
+	    	pch = strstr(sqlResult,rowTemp);
+	    	if(pch == NULL){
+	    		strcat(sqlResult,rowTemp);
+	    		strcat(sqlResult,"\n");
+	    	}
+	    	
+	    }
+
 	}
 	//strcat(sqlResult,"select(read)");
 }
 
 void writeDataBase(struct sqlQuery sqlValues,char* sqlResult){
-	strcat(sqlResult,"write(update");
+	
+	char temp[1024];
+	strcpy(temp,sqlValues.columns);
+ 	int* indexes;
+ 	char** values;
+ 	fprintf(logFile, "%s\n",temp );
+ 	values = (char**)malloc(sizeof(char*)*totalColm);
+	
+	int indSize = 0;
+	int valueSize = 0;
+	const char s[4] = ",='";
+	char *token;
+	
+	token = strtok(temp, s);
+	int k=0;
+	while( token != NULL ) {
+		if(k%2 == 0){ //left
+			for(int i=0; i<totalColm; i++){
+				if(strcmp(fr[i],token) == 0){
+					if(indSize == 0){
+						indexes = (int*)malloc(sizeof(int)*1);
+						indexes[indSize] = i;
+						indSize++;
+					}
+					else{
+						indexes[indSize] = i;
+						indexes = (int*)realloc(indexes,indSize++);
+					}
+				}
+			}
+		}
+		else{ //right
+			values[valueSize] = (char*)malloc(sizeof(char)*255);
+			fprintf(logFile, "%s\n",token);
+			strcpy(values[valueSize],token);
+			valueSize++;
+		}
+		k++;
+		token = strtok(NULL, s);
+	}
+
+		
+
+
+	//Industry_code_NZSIOC='AA21'
+	//parse input like this
+	const char s4[2] = "=";
+	
+
+  	token = strtok(sqlValues.whereCond,s4);
+  	char whereLeft[100];
+  	strcpy(whereLeft,token);
+	
+    token = strtok(NULL, s4);
+	char whereRight[100];
+	strcpy(whereRight,token);
+
+	const char s2[2] = "'";
+	char* token2;    
+	token2 = strtok(whereRight,s2);
+	strcpy(whereRight,token2);
+
+	fprintf(logFile, "LEFT =%s\n",whereLeft);
+	fprintf(logFile, "RIGHT =%s\n",whereRight);
+	int colmIndex = 0;
+	for(int i=0; i<totalColm; i++){
+		if(strcmp(fr[i],whereLeft) == 0){
+			colmIndex = i;
+			break;
+		}
+	}
+	for(int i=0; i<tableSize; i++){
+		
+		if(strcmp(table[i][colmIndex],whereRight) == 0){ //Where condition check
+			for(int j=0; j<valueSize; j++){
+				strcpy(table[i][indexes[j]],values[j]);
+			}
+		}
+		
+	}
+  	strcat(sqlResult,"update");
 }
+
+
 
 
 void freeTable(){
