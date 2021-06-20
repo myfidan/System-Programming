@@ -23,6 +23,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <time.h>
 
 #define BD_NO_CHDIR 01 /* Don't chdir("/") */
 #define BD_NO_CLOSE_FILES 02 /* Don't close all open files */
@@ -61,11 +62,12 @@ void FillTable();
 void freeTable();
 void FillSqlStructure(struct sqlQuery* sqlValues,char* temp);
 void err_exit(int errnum);
+void waitThreads();
 
 void* threadFun(void* arg);
-void handle_client(int cfd);
-void readDataBase(struct sqlQuery sqlValues,char* sqlResult);
-void writeDataBase(struct sqlQuery sqlValues,char* sqlResult);
+void handle_client(int cfd,int threadNum);
+void readDataBase(struct sqlQuery sqlValues,char* sqlResult,int* numberOfRecord,char* colmNames);
+void writeDataBase(struct sqlQuery sqlValues,char* sqlResult,int* numberOfRecord,char* colmNames);
 
 
 sig_atomic_t sig_flag = 0;
@@ -85,13 +87,29 @@ FILE* dataFile;
 pthread_mutex_t queMutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t condQue = PTHREAD_COND_INITIALIZER;
 int queSize = 0;
-
+sig_atomic_t currentThreadCount = 0;
+//Mutex for sigint control
+pthread_mutex_t ctrlmutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t ctrlCond = PTHREAD_COND_INITIALIZER;
 //This is my data structure table
 char*** table;
 char* firstRow = NULL; //This is first Row(Column names)
 char** fr; //Column names
 int tableSize = 0;
 int totalColm = 0;
+
+//Reader Writer variables/mutex and cond varibles
+int numberOfActiveReader = 0;
+int numberOfActiveWriter = 0;
+int numberOfWaitingReader = 0;
+int numberOfWaitingWriter = 0;
+
+pthread_cond_t okToRead = PTHREAD_COND_INITIALIZER;
+pthread_cond_t okToWrite = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+
+int okToExit = 0;
+time_t now; // For time
 
 int main(int argc, char *argv[]){
 	//Check this is first instance or not
@@ -106,22 +124,50 @@ int main(int argc, char *argv[]){
 	act.sa_flags = 0;
 
 	if((sigemptyset(&act.sa_mask) == -1) || (sigaction(SIGINT,&act,NULL) == -1)){
-		perror("Error signal handler for SIGINT");
-		return -1;
+		fprintf(logFile, "Error signal handler for SIGINT\n");
+		err_exit(-1);
 	}
 
 	take_input(argc,argv);
+	time(&now);
+	char timeTemp[100];
+	strcpy(timeTemp,ctime(&now));
+	timeTemp[strlen(timeTemp)-1] = '\0';
+	fprintf(logFile, "[%s]Executing with parameters:\n-p %d\n-o %s\n-l %d\n-d %s\n",timeTemp,port,pathToLogFile,poolSize,datasetPath);
+	fprintf(logFile, "[%s]Loading dataset...\n",timeTemp );
+	clock_t begin = clock();
 	FillTable();
+	clock_t end = clock();
+    double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+    
+    time(&now);
+	strcpy(timeTemp,ctime(&now));
+	timeTemp[strlen(timeTemp)-1] = '\0';
+	fprintf(logFile, "[%s]Dataset loaded in %.2lf seconds with %d records\n",timeTemp,time_spent,tableSize );
+	fflush(logFile);
+	
+
 	pthread_t threadPool[poolSize];
 	//create Threads
+	time(&now);
+	strcpy(timeTemp,ctime(&now));
+	timeTemp[strlen(timeTemp)-1] = '\0';
+	fprintf(logFile, "[%s]A pool of %d threads has been created\n",timeTemp,poolSize);
 	for(int i=0; i<poolSize; i++){
-		pthread_create(&threadPool[i],NULL,threadFun,NULL);
+		int s = pthread_create(&threadPool[i],NULL,threadFun,(void*)i);
+		if(s != 0){
+   			fprintf(logFile, "Pthread create error\n");
+			err_exit(-1);
+   			
+   		}
 	}
+	fflush(logFile);
+
 	//Create socket
 	int sfd,cfd;
 	sfd = socket(AF_INET, SOCK_STREAM, 0);
 	if(sfd == -1){
-		//print socket error
+		fprintf(logFile, "Socket open error\n");
 		err_exit(1);
 	}
 	//structure
@@ -132,12 +178,12 @@ int main(int argc, char *argv[]){
 	serverInf.sin_port = htons(port);
 	//bind
 	if(bind(sfd,(struct sockaddr*)&serverInf,sizeof(serverInf)) < 0){
-		//print socket bind error
+		fprintf(logFile, "Bind error\n");
 		err_exit(1);
 	}
 	//listen
-	if(listen(sfd,10) < 0 ){
-        //print listen error
+	if(listen(sfd,30) < 0 ){
+        fprintf(logFile, "Listen error\n");
         err_exit(1);
     }
     
@@ -145,14 +191,22 @@ int main(int argc, char *argv[]){
   	while(1){
 	    struct sockaddr_in clientInf;
 	    socklen_t clientSize = sizeof(clientInf);
+	    if(sig_flag > 0) break;
 	    cfd = accept(sfd,(struct sockaddr*)&clientInf,&clientSize);
 	    if(sig_flag > 0) break;
 	    if(cfd < 0){
-	    	//print accept error
+	    	fprintf(logFile, "Accept error\n");
 	    	err_exit(1);
 	    }
 	    //pthread_create(&thr[k++],NULL,threadFun,(void*)cfd);
 	    pthread_mutex_lock(&queMutex);
+	    if(poolSize == currentThreadCount){
+	    	time(&now);
+			strcpy(timeTemp,ctime(&now));
+			timeTemp[strlen(timeTemp)-1] = '\0';
+	    	fprintf(logFile, "[%s]No thread is available! waiting\n",timeTemp);
+	    	fflush(logFile);
+	    }
 	    queSize++;
 	    enqueue(cfd);
 	    pthread_cond_signal(&condQue);
@@ -162,8 +216,25 @@ int main(int argc, char *argv[]){
 
 	
 	// AFTER this is a deamon server..
-	//sleep(5);
+	
+	time(&now);
+	strcpy(timeTemp,ctime(&now));
+	timeTemp[strlen(timeTemp)-1] = '\0';
+	fprintf(logFile, "[%s]Terminating signal received, waiting for ongoing threads to complete.\n",timeTemp);
+	fflush(logFile);
+	waitThreads(threadPool);
+	
+	time(&now);
+	strcpy(timeTemp,ctime(&now));
+	timeTemp[strlen(timeTemp)-1] = '\0';
+	fprintf(logFile, "[%s]All threads have terminated, server shutting down.\n",timeTemp);
 	freeTable();
+
+	if(close(sfd) == -1){
+        fprintf(logFile, "Socket close error\n" );
+        err_exit(1);
+    }
+
 	clear_sema();
 
 	return 0;
@@ -222,11 +293,20 @@ void create_one_instance(){
 
 void clear_sema(){
 	if(sem_close(init_semaphore) == -1){
+		printf("semClose error\n");
 		exit(1);
 	}
 	if(sem_unlink("/init_one") == -1){
+		printf("sem unlink error\n");
 		exit(1);
 	}
+	if(fclose(logFile) == -1){
+		printf("fclose error\n");
+		exit(1);
+	}
+	while(dequeue()!=-2);
+	free(front);
+	free(back);
 }
 
 void take_input(int argc,char* argv[]){
@@ -270,57 +350,156 @@ void err_exit(int errnum){
 }
 
 void* threadFun(void* arg){
-
+	int threadNum = (int)arg;
     
 	while(1){
+		
 		pthread_mutex_lock(&queMutex);
-		while(queSize <= 0)  
+		if(okToExit == 1) {
+			pthread_mutex_unlock(&queMutex);
+			return NULL;
+		}
+		char timeTemp[100];
+		time(&now);
+		strcpy(timeTemp,ctime(&now));
+		timeTemp[strlen(timeTemp)-1] = '\0';
+		fprintf(logFile, "[%s]Thread #%d: waiting for connection\n",timeTemp,threadNum);
+		fflush(logFile);
+		while(queSize <= 0){
+			
 			pthread_cond_wait(&condQue, &queMutex);
+			if(okToExit == 1){
+				pthread_mutex_unlock(&queMutex);
+				return NULL;
+			} 
+				
+		}  
 		queSize--;
 		int cfd = dequeue();
 		pthread_mutex_unlock(&queMutex);
+
+		pthread_mutex_lock(&ctrlmutex);
+		currentThreadCount++;
+		pthread_mutex_unlock(&ctrlmutex);
 		
-		handle_client(cfd);
+		time(&now);
+		strcpy(timeTemp,ctime(&now));
+		timeTemp[strlen(timeTemp)-1] = '\0';
+		fprintf(logFile, "[%s]A connection has been delegated to thread id #%d\n",timeTemp,threadNum);
+		fflush(logFile);
+		handle_client(cfd,threadNum);
 
 	}
 	
 	return NULL;
 }
 
-void handle_client(int cfd){
+void handle_client(int cfd,int threadNum){
 	char buffer[1024];
-	char sqlResult[1024*1024];
+	char sqlResult[1024*1024*2];
 	
 	while(1){
-		int c = read(cfd,buffer,sizeof(buffer));
-	    if(c == -1 || c == 0) break; //client end
+		
+		int readCount = 0;
+		int end = 0;
+		while(readCount != 1024){
+			int c = read(cfd,buffer,sizeof(buffer));
+			readCount += c;
+			if(c == -1 || c == 0) {
+				end = 1;
+				break; //client end
+			}
+		}
+	    if(end == 1) break;
 	    //if(buffer == NULL) break;
-	    
+	    char temp[1024];
+	    temp[0] = '\0';
+	    for(int i=0; i<1023; i++){
+	    	if(buffer[i] != ';')
+	    	strncat(temp,&buffer[i],1);
+	    }
+	    char timeTemp[100];
+	    time(&now);
+		strcpy(timeTemp,ctime(&now));
+		timeTemp[strlen(timeTemp)-1] = '\0';
+	    fprintf(logFile, "[%s]Thread #%d: received query %s\n",timeTemp,threadNum,temp);
+	    fflush(logFile);
 	    //fprintf(logFile,"%s\n",buffer );
 	    //fflush (logFile);
 	    sqlResult[0] = '\0';
-	    char temp[1024];
-	    strcpy(temp,buffer);
+	    
 	    struct sqlQuery sqlValues;
+
+	    int numberOfRecord = 0;
+	    char colmNames[1024];
+	    colmNames[0] = '\0';
 
 	    FillSqlStructure(&sqlValues,temp); //parse sql quary into the structure
 	    
 	    if(sqlValues.select){ //Reader (SELECT)
-	    	readDataBase(sqlValues,sqlResult);
-  	
+	    	pthread_mutex_lock(&m);
+	    	while((numberOfWaitingWriter+numberOfActiveWriter) > 0){
+	    		numberOfWaitingReader++;
+	    		pthread_cond_wait(&okToRead,&m);
+	    		numberOfWaitingReader--;
+	    	}
+	    	numberOfActiveReader++;
+	    	pthread_mutex_unlock(&m);
+	    	//Access database
+	    	readDataBase(sqlValues,sqlResult,&numberOfRecord,colmNames);
+	    	
+	    	time(&now);
+			strcpy(timeTemp,ctime(&now));
+			timeTemp[strlen(timeTemp)-1] = '\0';
+  			fprintf(logFile, "[%s]Thread #%d: query completed, %d records have been returned.\n",timeTemp,threadNum,numberOfRecord);
+			fflush(logFile);
+
+  			pthread_mutex_lock(&m);
+  			numberOfActiveReader--;
+  			if(numberOfActiveReader == 0 && numberOfWaitingWriter > 0){
+  				pthread_cond_signal(&okToWrite);
+  			}
+  			pthread_mutex_unlock(&m);
 	    }
 	    else{ // Writer (UPDATE)
-	    	writeDataBase(sqlValues,sqlResult);
-	    }
-	    
+	    	pthread_mutex_lock(&m);
+	    	while((numberOfActiveWriter+numberOfActiveReader) > 0){
+	    		numberOfWaitingWriter++;
+	    		pthread_cond_wait(&okToWrite,&m);
+	    		numberOfWaitingWriter--;
+	    			
+	    	}
+	    	numberOfActiveWriter++;
+	    	pthread_mutex_unlock(&m);
+	    	
+	    	writeDataBase(sqlValues,sqlResult,&numberOfRecord,colmNames);
+	    	
+	    	time(&now);
+			strcpy(timeTemp,ctime(&now));
+			timeTemp[strlen(timeTemp)-1] = '\0';
+	    	fprintf(logFile, "[%s]Thread #%d: query completed, %d records have been returned.\n",timeTemp,threadNum,numberOfRecord);
+			fflush(logFile);
 
-  		fprintf(logFile, "%d\n%d\n%d\n%s\n%s\n",sqlValues.select,sqlValues.update,sqlValues.distinct,sqlValues.columns,sqlValues.whereCond);
-	    fflush(logFile);
+	    	pthread_mutex_lock(&m);
+	    	numberOfActiveWriter--;
+	    	if(numberOfWaitingWriter > 0){
+	    		pthread_cond_signal(&okToWrite);
+	    	}
+	    	else if(numberOfWaitingReader > 0){
+	    		pthread_cond_broadcast(&okToRead);
+	    	}
+	    	pthread_mutex_unlock(&m);
+	    }
+
+  		//fprintf(logFile, "%d\n%d\n%d\n%s\n%s\n",sqlValues.select,sqlValues.update,sqlValues.distinct,sqlValues.columns,sqlValues.whereCond);
+	    //fflush(logFile);
+
 	    //fprintf(logFile, "%s\n",sqlResult );
 	   	//char temp2[] = "sent from server";
 	   	//strcpy(buffer,temp2);
-	   	fprintf(logFile, "%d\n", strlen(sqlResult)+1);
-	   	fflush(logFile);
+	   	
+	   	//fprintf(logFile, "%d\n", strlen(sqlResult)+1);
+	   	//fflush(logFile);
 
 	   	char sizeTemp[10];
 	   	char rightDel = '-';
@@ -330,16 +509,35 @@ void handle_client(int cfd){
 	   	while(sizeTemp[endindex] != '\0'){
 	   		endindex++;
 	   	}
-	   	fprintf(logFile, "%d\n", endindex);
-	   		fflush(logFile);
+	   	//fprintf(logFile, "%d\n", endindex);
+	   	//	fflush(logFile);
 	   	for(int i=endindex; i<9; i++){
 	   		strncat(sizeTemp,&rightDel,1);
 	   	}
-	   	fprintf(logFile, "%s\n", sizeTemp);
-	   		fflush(logFile);
-
+	   	//fprintf(logFile, "%s\n", sizeTemp);
+	   	//	fflush(logFile);
+	   		//Write number of byte
 	   	write(cfd,sizeTemp,strlen(sizeTemp)+1);
-	   		
+	   		//Write number of record
+	   	char numRec[10];
+	   	sprintf(numRec,"%d",numberOfRecord);
+	   	endindex = 0;
+	   	while(numRec[endindex] != '\0'){
+	   		endindex++;
+	   	}
+	   	for(int i=endindex; i<9; i++){
+	   		strncat(numRec,&rightDel,1);
+	   	}
+	   	write(cfd,numRec,strlen(numRec)+1);
+
+	   	int sizeColmNames = strlen(colmNames);
+	   	for(int k=sizeColmNames; k<1022; k++){
+	   		strncat(colmNames,&rightDel,1);
+	   	}
+	   	char newL = '\n';
+	   	strncat(colmNames,&newL,1);
+	   	write(cfd,colmNames,strlen(colmNames)+1);
+
 		if(write(cfd,sqlResult,strlen(sqlResult)+1) == -1){
 			fprintf(logFile, "Write socket error\n" );
 			fflush(logFile);
@@ -347,7 +545,14 @@ void handle_client(int cfd){
 		}
 		bzero(buffer, 1024);
 		//bzero(sqlResult,strlen(sqlResult));
+		usleep(500*1000); // additianolly 0.5 second sleep as expected in hw
+		
 	}
+	pthread_mutex_lock(&ctrlmutex);
+	currentThreadCount--;
+	pthread_cond_signal(&ctrlCond);
+	pthread_mutex_unlock(&ctrlmutex);
+	
 }
 
 //Simple enqueue implementation for my que
@@ -404,6 +609,8 @@ void FillTable(){
 		index++;
 	}
 
+	if (firstRow)
+	    free(firstRow);
 
 	int cap = 2;
 	table = (char***)malloc(sizeof(char**)*cap);
@@ -431,6 +638,7 @@ void FillTable(){
 						doubleq = 0;
 					}
 				}
+				if(line[z] != '\n')
 				strncat(table[tableSize][k],&line[z],1);
 				z++;
 			}
@@ -469,6 +677,7 @@ void FillSqlStructure(struct sqlQuery* sqlValues,char* temp){
 	sqlValues->columns[0] = '\0';
 	sqlValues->whereCond[0] = '\0';
 	int updateWhere = 0;
+	int firsttime = 0;
 	while(token != NULL){
 		if(sqlIndex == 1){ //Check Select or Update
 			char selectStr[] = "SELECT";
@@ -498,7 +707,16 @@ void FillSqlStructure(struct sqlQuery* sqlValues,char* temp){
 			}
 		}
 		if(updateWhere == 1){
-			strcat(sqlValues->whereCond,token);
+			if(firsttime == 0){
+				strcat(sqlValues->whereCond,token);
+
+				firsttime = 1;
+			}
+			else{
+				strcat(sqlValues->whereCond," ");
+				strcat(sqlValues->whereCond,token);
+			}
+			
 		}
 		if(sqlIndex>3 && sqlValues->update == 1 && updateWhere == 0){
 			char whereStr[] = "WHERE";
@@ -515,10 +733,11 @@ void FillSqlStructure(struct sqlQuery* sqlValues,char* temp){
 		token = strtok(NULL,s);
 		sqlIndex++;
 	}
+	//fprintf(logFile, "%s\n", sqlValues->whereCond);
 }
 
 
-void readDataBase(struct sqlQuery sqlValues,char* sqlResult){
+void readDataBase(struct sqlQuery sqlValues,char* sqlResult,int* numberOfRecord,char* colmNames){
 	if(sqlValues.distinct == 0){ // NOT DISTINCT
 		const char s[2] = ",";
   		char *token;
@@ -531,6 +750,8 @@ void readDataBase(struct sqlQuery sqlValues,char* sqlResult){
 	    	//strcat(sqlResult,token);
 		    	for(int i=0; i<totalColm; i++){
 		    		if(strcmp(fr[i],token) == 0){
+		    			strcat(colmNames,fr[i]);
+		    			strcat(colmNames,"\t");
 		    			arr[arrSize++] = i;
 		    			break;
 		    		}
@@ -540,6 +761,8 @@ void readDataBase(struct sqlQuery sqlValues,char* sqlResult){
 	    }
 	    else{ // SELECT *
 	    	for(int i=0; i<totalColm; i++){
+	    		strcat(colmNames,fr[i]);
+		    	strcat(colmNames,"\t");
 	    		arr[arrSize++] = i;
 	    	}
 	    }
@@ -552,8 +775,10 @@ void readDataBase(struct sqlQuery sqlValues,char* sqlResult){
 	    		//fprintf(logFile, "%s\t",table[i][arr[j]]);
 	    	}
 	    	//fprintf(logFile, "\n");
+	    	(*numberOfRecord)++;
 	    	strcat(sqlResult,"\n");
 	    }
+	    free(arr);
 	}
 	else{ // DISTINCT
 		const char s[2] = ",";
@@ -568,6 +793,8 @@ void readDataBase(struct sqlQuery sqlValues,char* sqlResult){
 		    	//strcat(sqlResult,token);
 		    	for(int i=0; i<totalColm; i++){
 		    		if(strcmp(fr[i],token) == 0){
+		    			strcat(colmNames,fr[i]);
+		    			strcat(colmNames,"\t");
 		    			arr[arrSize++] = i;
 		    			break;
 		    		}
@@ -577,6 +804,8 @@ void readDataBase(struct sqlQuery sqlValues,char* sqlResult){
 	    }
 	    else{
 	    	for(int i=0; i<totalColm; i++){
+	    		strcat(colmNames,fr[i]);
+		    	strcat(colmNames,"\t");
 	    		arr[arrSize++] = i;
 	    	}
 	    }
@@ -594,27 +823,32 @@ void readDataBase(struct sqlQuery sqlValues,char* sqlResult){
 	    	char* pch;
 	    	pch = strstr(sqlResult,rowTemp);
 	    	if(pch == NULL){
+	    		(*numberOfRecord)++;
 	    		strcat(sqlResult,rowTemp);
 	    		strcat(sqlResult,"\n");
 	    	}
 	    	
 	    }
-
+	    free(arr);
 	}
 	//strcat(sqlResult,"select(read)");
 }
 
-void writeDataBase(struct sqlQuery sqlValues,char* sqlResult){
+void writeDataBase(struct sqlQuery sqlValues,char* sqlResult,int* numberOfRecord,char* colmNames){
 	
 	char temp[1024];
 	strcpy(temp,sqlValues.columns);
  	int* indexes;
  	char** values;
- 	fprintf(logFile, "%s\n",temp );
  	values = (char**)malloc(sizeof(char*)*totalColm);
-	
+	//fprintf(logFile, "HEY=%s\n",sqlValues.columns );
 	int indSize = 0;
 	int valueSize = 0;
+
+
+
+
+
 	const char s[4] = ",='";
 	char *token;
 	
@@ -624,6 +858,8 @@ void writeDataBase(struct sqlQuery sqlValues,char* sqlResult){
 		if(k%2 == 0){ //left
 			for(int i=0; i<totalColm; i++){
 				if(strcmp(fr[i],token) == 0){
+					strcat(colmNames,fr[i]);
+		    		strcat(colmNames,"\t");
 					if(indSize == 0){
 						indexes = (int*)malloc(sizeof(int)*1);
 						indexes[indSize] = i;
@@ -638,7 +874,7 @@ void writeDataBase(struct sqlQuery sqlValues,char* sqlResult){
 		}
 		else{ //right
 			values[valueSize] = (char*)malloc(sizeof(char)*255);
-			fprintf(logFile, "%s\n",token);
+			//fprintf(logFile, "%s\n",token);
 			strcpy(values[valueSize],token);
 			valueSize++;
 		}
@@ -647,8 +883,6 @@ void writeDataBase(struct sqlQuery sqlValues,char* sqlResult){
 	}
 
 		
-
-
 	//Industry_code_NZSIOC='AA21'
 	//parse input like this
 	const char s4[2] = "=";
@@ -659,36 +893,69 @@ void writeDataBase(struct sqlQuery sqlValues,char* sqlResult){
   	strcpy(whereLeft,token);
 	
     token = strtok(NULL, s4);
-	char whereRight[100];
-	strcpy(whereRight,token);
+	char tmp[255];
+	char whereRight[255];
+	whereRight[0] = '\0';
+	strcpy(tmp,token);
+	//fprintf(logFile, "RIGHT =%s\n",tmp);
+	int z =0;
+	while(tmp[z] != '\0'){
+		if(tmp[z] != '\''){
+			strncat(whereRight,&tmp[z],1);
+		}
+		z++;
+	}
 
-	const char s2[2] = "'";
-	char* token2;    
-	token2 = strtok(whereRight,s2);
-	strcpy(whereRight,token2);
-
-	fprintf(logFile, "LEFT =%s\n",whereLeft);
-	fprintf(logFile, "RIGHT =%s\n",whereRight);
-	int colmIndex = 0;
+	//fprintf(logFile, "LEFT =%s\n",whereLeft);
+	//fprintf(logFile, "RIGHT =%s\n",whereRight);
+	int colmIndex = -1;
 	for(int i=0; i<totalColm; i++){
 		if(strcmp(fr[i],whereLeft) == 0){
 			colmIndex = i;
 			break;
 		}
 	}
-	for(int i=0; i<tableSize; i++){
+	if(colmIndex != -1){
+		for(int i=0; i<tableSize; i++){
 		
-		if(strcmp(table[i][colmIndex],whereRight) == 0){ //Where condition check
-			for(int j=0; j<valueSize; j++){
-				strcpy(table[i][indexes[j]],values[j]);
+			if(strcmp(table[i][colmIndex],whereRight) == 0){ //Where condition check
+				(*numberOfRecord)++;
+				for(int j=0; j<valueSize; j++){
+
+					strcpy(table[i][indexes[j]],values[j]);
+				}
 			}
-		}
 		
+		}	
 	}
-  	strcat(sqlResult,"update");
+	
+	free(indexes);
+	for(int i=0; i<valueSize; i++){
+		free(values[i]);
+	}
+	free(values);
+	//fprintf(logFile, "%s\n",table[0][colmIndex] );
+	//fprintf(logFile, "%s\n",whereRight );
+
+  	//fprintf(logFile, "%s",sqlResult);
 }
 
+void waitThreads(pthread_t* thr){
+	pthread_mutex_lock(&ctrlmutex);
+	while(currentThreadCount > 0)
+		pthread_cond_wait(&ctrlCond,&ctrlmutex);
+	pthread_mutex_unlock(&ctrlmutex);
 
+	pthread_mutex_lock(&queMutex);
+	okToExit = 1;
+	pthread_cond_broadcast(&condQue);
+	pthread_mutex_unlock(&queMutex);
+
+	for(int i=0; i<poolSize; i++){
+		pthread_join(thr[i],NULL);
+		
+	}
+}
 
 
 void freeTable(){

@@ -1,0 +1,22 @@
+[Wed Jun  9 21:44:53 2021]Executing with parameters:
+-p 1453
+-o abc.txt
+-l 8
+-d data.csv
+[Wed Jun  9 21:44:53 2021]Loading dataset...
+[Wed Jun  9 21:44:53 2021]Dataset loaded in 0.00 seconds with 261 records
+[Wed Jun  9 21:44:53 2021]A pool of 8 threads has been created
+[Wed Jun  9 21:44:53 2021]Thread #6: waiting for connection
+[Wed Jun  9 21:44:53 2021]Thread #7: waiting for connection
+[Wed Jun  9 21:44:53 2021]Thread #5: waiting for connection
+[Wed Jun  9 21:44:53 2021]Thread #4: waiting for connection
+[Wed Jun  9 21:44:53 2021]Thread #3: waiting for connection
+[Wed Jun  9 21:44:53 2021]Thread #2: waiting for connection
+[Wed Jun  9 21:44:53 2021]Thread #1: waiting for connection
+[Wed Jun  9 21:44:53 2021]Thread #0: waiting for connection
+[Wed Jun  9 21:45:03 2021]A connection has been delegated to thread id #6
+[Wed Jun  9 21:45:03 2021]Thread #6: received query 10 UPDATE TABLE SET Industry_code_NZSIOC='hellooo' WHERE Industry_aggregation_NZSIOC='Level 1'
+[Wed Jun  9 21:45:03 2021]Thread #6: query completed, 74 records have been returned.
+[Wed Jun  9 21:45:04 2021]Thread #6: waiting for connection
+[Wed Jun  9 21:45:18 2021]Terminating signal received, waiting for ongoing threads to complete.
+[Wed Jun  9 21:45:18 2021]All threads have terminated, server shutting down.

@@ -1,0 +1,118 @@
+==23960== Memcheck, a memory error detector
+==23960== Copyright (C) 2002-2013, and GNU GPL'd, by Julian Seward et al.
+==23960== Using Valgrind-3.10.1 and LibVEX; rerun with -h for copyright info
+==23960== Command: ./client -i 10 -a 127.0.0.1 -p 1453 -o query
+==23960== Parent PID: 17633
+==23960== 
+--23960-- 
+--23960-- Valgrind options:
+--23960--    --leak-check=full
+--23960--    --log-file=logfile.out
+--23960--    -v
+--23960-- Contents of /proc/version:
+--23960--   Linux version 4.4.0-64-generic (buildd@lcy01-20) (gcc version 4.8.4 (Ubuntu 4.8.4-2ubuntu1~14.04.3) ) #85~14.04.1-Ubuntu SMP Mon Feb 20 12:11:38 UTC 2017
+--23960-- Arch and hwcaps: X86, LittleEndian, x86-mmxext-sse1-sse2-lzcnt
+--23960-- Page sizes: currently 4096, max supported 4096
+--23960-- Valgrind library directory: /usr/lib/valgrind
+--23960-- Reading syms from /lib/i386-linux-gnu/ld-2.19.so
+--23960--   Considering /lib/i386-linux-gnu/ld-2.19.so ..
+--23960--   .. CRC mismatch (computed 1b1c4cf5 wanted 02b590da)
+--23960--   Considering /usr/lib/debug/lib/i386-linux-gnu/ld-2.19.so ..
+--23960--   .. CRC is valid
+--23960-- Reading syms from /home/cse312/Desktop/system/System-Programming/final/client/client
+--23960-- Reading syms from /usr/lib/valgrind/memcheck-x86-linux
+--23960--   Considering /usr/lib/valgrind/memcheck-x86-linux ..
+--23960--   .. CRC mismatch (computed 9b80a843 wanted b9b8f553)
+--23960--    object doesn't have a symbol table
+--23960--    object doesn't have a dynamic symbol table
+--23960-- Scheduler: using generic scheduler lock implementation.
+--23960-- Reading suppressions file: /usr/lib/valgrind/default.supp
+==23960== embedded gdbserver: reading from /tmp/vgdb-pipe-from-vgdb-to-23960-by-cse312-on-???
+==23960== embedded gdbserver: writing to   /tmp/vgdb-pipe-to-vgdb-from-23960-by-cse312-on-???
+==23960== embedded gdbserver: shared mem   /tmp/vgdb-pipe-shared-mem-vgdb-23960-by-cse312-on-???
+==23960== 
+==23960== TO CONTROL THIS PROCESS USING vgdb (which you probably
+==23960== don't want to do, unless you know exactly what you're doing,
+==23960== or are doing some strange experiment):
+==23960==   /usr/lib/valgrind/../../bin/vgdb --pid=23960 ...command...
+==23960== 
+==23960== TO DEBUG THIS PROCESS USING GDB: start GDB like this
+==23960==   /path/to/gdb ./client
+==23960== and then give GDB the following command
+==23960==   target remote | /usr/lib/valgrind/../../bin/vgdb --pid=23960
+==23960== --pid is optional if only one valgrind process is running
+==23960== 
+--23960-- REDIR: 0x4017e90 (ld-linux.so.2:strlen) redirected to 0x380755e2 (???)
+--23960-- REDIR: 0x4017ca0 (ld-linux.so.2:index) redirected to 0x380755bd (???)
+--23960-- Reading syms from /usr/lib/valgrind/vgpreload_core-x86-linux.so
+--23960--   Considering /usr/lib/valgrind/vgpreload_core-x86-linux.so ..
+--23960--   .. CRC mismatch (computed db3a9a41 wanted f4b91af9)
+--23960--    object doesn't have a symbol table
+--23960-- Reading syms from /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so
+--23960--   Considering /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so ..
+--23960--   .. CRC mismatch (computed fa818b99 wanted 420ff42b)
+--23960--    object doesn't have a symbol table
+==23960== WARNING: new redirection conflicts with existing -- ignoring it
+--23960--     old: 0x04017e90 (strlen              ) R-> (0000.0) 0x380755e2 ???
+--23960--     new: 0x04017e90 (strlen              ) R-> (2007.0) 0x0402d480 strlen
+--23960-- Reading syms from /lib/i386-linux-gnu/libpthread-2.19.so
+--23960--   Considering /lib/i386-linux-gnu/libpthread-2.19.so ..
+--23960--   .. CRC mismatch (computed 2b96a78f wanted 0b29f31f)
+--23960--   Considering /usr/lib/debug/lib/i386-linux-gnu/libpthread-2.19.so ..
+--23960--   .. CRC is valid
+--23960-- Reading syms from /lib/i386-linux-gnu/libc-2.19.so
+--23960--   Considering /lib/i386-linux-gnu/libc-2.19.so ..
+--23960--   .. CRC mismatch (computed 1039bceb wanted 920e1817)
+--23960--   Considering /usr/lib/debug/lib/i386-linux-gnu/libc-2.19.so ..
+--23960--   .. CRC is valid
+--23960-- REDIR: 0x40e2f40 (libc.so.6:strnlen) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--23960-- REDIR: 0x40e4ef0 (libc.so.6:strncasecmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--23960-- REDIR: 0x40ea870 (libc.so.6:memrchr) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--23960-- REDIR: 0x40fd8b0 (libc.so.6:wcslen) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--23960-- REDIR: 0x40e3cc0 (libc.so.6:strstr) redirected to 0x4031460 (strstr)
+--23960-- REDIR: 0x40e30f0 (libc.so.6:__GI_strrchr) redirected to 0x402ce50 (__GI_strrchr)
+--23960-- REDIR: 0x40e2e80 (libc.so.6:__GI_strlen) redirected to 0x402d400 (__GI_strlen)
+--23960-- REDIR: 0x40e2520 (libc.so.6:__GI_strchr) redirected to 0x402cf80 (__GI_strchr)
+--23960-- REDIR: 0x40e27b0 (libc.so.6:strcpy) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--23960-- REDIR: 0x40eb190 (libc.so.6:__strcpy_ssse3) redirected to 0x402d4c0 (strcpy)
+--23960-- REDIR: 0x40de830 (libc.so.6:malloc) redirected to 0x402a110 (malloc)
+--23960-- REDIR: 0x40dede0 (libc.so.6:free) redirected to 0x402b370 (free)
+--23960-- REDIR: 0x40e50b0 (libc.so.6:__GI_memcpy) redirected to 0x402f090 (__GI_memcpy)
+--23960-- REDIR: 0x40e4620 (libc.so.6:__GI_memcmp) redirected to 0x402ff90 (__GI_memcmp)
+--23960-- REDIR: 0x40e2810 (libc.so.6:__GI_strcpy) redirected to 0x402d5a0 (__GI_strcpy)
+--23960-- REDIR: 0x40e2740 (libc.so.6:__GI_strcmp) redirected to 0x402e600 (__GI_strcmp)
+--23960-- REDIR: 0x40e6d60 (libc.so.6:__GI___rawmemchr) redirected to 0x4030ea0 (__GI___rawmemchr)
+--23960-- REDIR: 0x40e6e30 (libc.so.6:strchrnul) redirected to 0x4030e50 (strchrnul)
+--23960-- REDIR: 0x41aef70 (libc.so.6:__strnlen_sse2) redirected to 0x402d380 (strnlen)
+--23960-- REDIR: 0x40e2e30 (libc.so.6:strlen) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--23960-- REDIR: 0x40eafd0 (libc.so.6:__strlen_sse2_bsf) redirected to 0x402d3e0 (strlen)
+--23960-- REDIR: 0x40e4430 (libc.so.6:__GI_memchr) redirected to 0x402e7d0 (__GI_memchr)
+--23960-- REDIR: 0x40e26e0 (libc.so.6:strcmp) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--23960-- REDIR: 0x41a1900 (libc.so.6:__strcmp_ssse3) redirected to 0x402e5b0 (strcmp)
+--23960-- REDIR: 0x40e2f80 (libc.so.6:strncat) redirected to 0x4024580 (_vgnU_ifunc_wrapper)
+--23960-- REDIR: 0x40f8a50 (libc.so.6:__strncat_ssse3) redirected to 0x402d260 (strncat)
+==23960== Syscall param read(buf) points to unaddressable byte(s)
+==23960==    at 0x4058DB3: __read_nocancel (syscall-template.S:81)
+==23960==    by 0x8048E84: main (in /home/cse312/Desktop/system/System-Programming/final/client/client)
+==23960==  Address 0x4218fb2 is 0 bytes after a block of size 2 alloc'd
+==23960==    at 0x402A17C: malloc (in /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so)
+==23960==    by 0x8048E5B: main (in /home/cse312/Desktop/system/System-Programming/final/client/client)
+==23960== 
+==23960== 
+==23960== HEAP SUMMARY:
+==23960==     in use at exit: 0 bytes in 0 blocks
+==23960==   total heap usage: 19 allocs, 19 frees, 3,215 bytes allocated
+==23960== 
+==23960== All heap blocks were freed -- no leaks are possible
+==23960== 
+==23960== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 0 from 0)
+==23960== 
+==23960== 1 errors in context 1 of 1:
+==23960== Syscall param read(buf) points to unaddressable byte(s)
+==23960==    at 0x4058DB3: __read_nocancel (syscall-template.S:81)
+==23960==    by 0x8048E84: main (in /home/cse312/Desktop/system/System-Programming/final/client/client)
+==23960==  Address 0x4218fb2 is 0 bytes after a block of size 2 alloc'd
+==23960==    at 0x402A17C: malloc (in /usr/lib/valgrind/vgpreload_memcheck-x86-linux.so)
+==23960==    by 0x8048E5B: main (in /home/cse312/Desktop/system/System-Programming/final/client/client)
+==23960== 
+==23960== ERROR SUMMARY: 1 errors from 1 contexts (suppressed: 0 from 0)

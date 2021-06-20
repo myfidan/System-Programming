@@ -23,6 +23,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <time.h>
 
 char IPv4[20];
 int PORT;
@@ -33,7 +34,7 @@ FILE* queryFile;
 int querySize;
 
 void take_input(int argc,char* argv[]);
-void findQuerySize(char** queries);
+void findQuerySize();
 void readQueries(char** queries);
 
 int main(int argc, char *argv[]){
@@ -63,43 +64,111 @@ int main(int argc, char *argv[]){
 		exit(1);
 	}
 	//Client now connect to server
-
+    time_t now;
+    time(&now);
+    char timeTemp[100];
+    strcpy(timeTemp,ctime(&now));   
+    timeTemp[strlen(timeTemp)-1] = '\0';
+    printf("[%s]Client-%d connecting to %s\n",timeTemp,clientID,IPv4);
   	char** queries;
-  	findQuerySize(queries);
+  	findQuerySize();
 	queries = (char**)malloc(sizeof(char*)*querySize);
     readQueries(queries);
 
-    char buffer[1024*1024];
+    char* buffer;
     int readC;
     for(int i=0; i<querySize; i++){
-        buffer[0] = '\0';
+        time_t begin = time(NULL);
     	//printf("%s\n",queries[i]);
-    	
-    	write(sfd,queries[i],strlen(queries[i])+1);
-
+        time(&now);
+        strcpy(timeTemp,ctime(&now));
+        timeTemp[strlen(timeTemp)-1] = '\0';
+    	printf("[%s]Client-%d connected and sending query '",timeTemp,clientID);
+        for(int j=0; j<1024; j++){
+            if(queries[i][j] != ';')
+            printf("%c",queries[i][j]);
+        }
+        printf("'\n");
+    	int checkWrite = write(sfd,queries[i],strlen(queries[i])+1);
+        if(checkWrite == -1){
+            printf("socket write error\n");
+            exit(1);
+        }
+        //Read total byte
         int totalReadData = 0;
         char readsize[10];
         int totalsizeInt;
         readC = read(sfd,readsize,sizeof(readsize));
-        printf("%d\n",totalReadData );
-        printf("%s\n",readsize );
+        if(readC == -1){
+            printf("socket Read error\n");
+            exit(1);
+        }
         totalsizeInt = atoi(readsize);
-        printf("%d\n",totalsizeInt );
+        //read number of record
+        int totalNumRec = 0;
+        char numberRecord[10];
+        readC = read(sfd,numberRecord,sizeof(numberRecord));
+        if(readC == -1){
+            printf("socket read error\n");
+            exit(1);
+        }
+        totalNumRec = atoi(numberRecord);
+        
+        //Read column names
+        char columnNames[1024];
+        int k=0;
+        while(k<1024){
+            readC = read(sfd,columnNames,sizeof(columnNames));  
+            if(readC == -1){
+                printf("socket read error\n");
+                exit(1);
+            }
+            k += readC;   
+        }
+        for(int j=0; j<1024; j++){
+            if(columnNames[j] != '-')
+            printf("%c",columnNames[j]);
+        }
+        //printf("%d\n",totalReadData );
+        //printf("%s\n",readsize );
+        buffer = (char*)malloc(sizeof(char)*totalsizeInt+1);
+        buffer[0] = '\0';
         while(totalsizeInt != totalReadData){
             readC = read(sfd,buffer,sizeof(buffer));
+            if(readC == -1){
+                printf("socket read error\n");
+                exit(1);
+            }
+            buffer[readC] = '\0';
             printf("%s",buffer );
-
             totalReadData += readC;
         }
+        time_t end = time(NULL);
+        time(&now);
+        strcpy(timeTemp,ctime(&now));
+        timeTemp[strlen(timeTemp)-1] = '\0';
+        printf("[%s]Server's response to Client-%d is %d records, and arrived in %.2lf seconds\n",timeTemp,clientID,totalNumRec,(double)(end - begin));
 
-        sleep(1);
+        free(buffer);
     }
-    
-	printf("%s\n",IPv4 );
-	printf("%d\n",PORT );
-	printf("%s\n",queryFilePath );
-	printf("%d\n",clientID );
-    close(sfd);
+    time(&now);
+    strcpy(timeTemp,ctime(&now));
+    timeTemp[strlen(timeTemp)-1] = '\0';
+    printf("[%s]A total of %d queries were executed, client is terminating.\n",timeTemp,querySize);
+    if(close(sfd) == -1){
+        printf("socket close error\n");
+        exit(1);
+    }
+
+    if(fclose(queryFile) == -1){
+        printf("fclose error\n");
+        exit(1);
+    }
+
+    for(int i=0; i<querySize; i++){
+        free(queries[i]);
+    }
+    free(queries);
 
 	return 0;
 }
@@ -144,7 +213,7 @@ void take_input(int argc,char* argv[]){
     	
 }
 
-void findQuerySize(char** queries){
+void findQuerySize(){
 	int totalQueryCount = 0;
 	char* line = NULL;
 	char *token;
@@ -157,8 +226,12 @@ void findQuerySize(char** queries){
         token = strtok(line, s);
         if(strcmp(token,stringID) == 0) totalQueryCount++;
     }
-    fclose(queryFile);
+    if(fclose(queryFile) == -1){
+        printf("fclose error\n");
+        exit(1);
+    }
     querySize = totalQueryCount;
+    free(line);
 }
 
 void readQueries(char** queries){
@@ -178,12 +251,19 @@ void readQueries(char** queries){
     }
     int index = 0;
     char tempBuff[1024];
+    char noktali = ';';
     while ((read = getline(&line, &len, queryFile)) != -1) {
     	strcpy(tempBuff,line);
         token = strtok(line, s);
         if(strcmp(token,stringID) == 0){
         	queries[index] = (char*)malloc(sizeof(char)*1024);
-        	strcpy(queries[index++],tempBuff);
+        	strcpy(queries[index],tempBuff);
+            for(int i=strlen(queries[index]); i<1023; i++){
+                strncat(queries[index],&noktali,1);
+            }
+            
+            index++;
         }
     }
+    free(line);
 }
